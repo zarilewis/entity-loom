@@ -3,7 +3,7 @@
  */
 
 export { type PlatformParser, type PlatformParserConstructor } from "./interface.ts";
-export { createParser, getParserForPlatform, detectPlatform } from "./registry.ts";
+export { createParser, getParserForPlatform, detectPlatform, getRegisteredPlatforms } from "./registry.ts";
 export { ChatGPTParser } from "./chatgpt.ts";
 export { ClaudeParser } from "./claude.ts";
 export { SillyTavernParser } from "./sillytavern.ts";

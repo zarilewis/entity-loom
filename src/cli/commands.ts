@@ -18,7 +18,7 @@ import { LLMClient } from "../llm/mod.ts";
 /**
  * Interactive import command — guides user through the full pipeline.
  */
-export async function import(flags: Record<string, string | boolean>): Promise<void> {
+export async function importCommand(flags: Record<string, string | boolean>): Promise<void> {
   const progress = new ProgressReporter("[entity-loom]");
   const partial = buildConfig(flags);
 

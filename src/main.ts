@@ -66,8 +66,8 @@ async function main(): Promise<void> {
   // Dynamic imports to avoid loading everything for simple commands
   switch (command) {
     case "import": {
-      const { import: importCmd } = await import("./cli/commands.ts");
-      await importCmd(flags);
+      const { importCommand } = await import("./cli/commands.ts");
+      await importCommand(flags);
       break;
     }
     case "resume": {
