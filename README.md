@@ -179,7 +179,7 @@ Use `--id-prefix` for a custom prefix:
 # produces: old-chatgpt-550e8400-e29b-41d4-a716-446655440000
 ```
 
-Message IDs are shortened to a 12-character SHA-256 hash to keep memory file `[chat:ID]` tags compact, which saves tokens in RAG indexes.
+Message IDs from the export are preserved as-is in the database.
 
 ## Supported platforms
 
