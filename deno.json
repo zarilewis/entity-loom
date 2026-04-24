@@ -1,0 +1,35 @@
+{
+  "name": "@entity/entity-loom",
+  "version": "0.1.0",
+  "exports": "./src/mod.ts",
+  "tasks": {
+    "dev": "deno run -A --watch src/main.ts",
+    "import": "deno run -A src/main.ts import",
+    "resume": "deno run -A src/main.ts resume",
+    "status": "deno run -A src/main.ts status",
+    "analyze": "deno run -A src/main.ts analyze",
+    "check": "deno check src/main.ts",
+    "lint": "deno lint",
+    "test": "deno test -A tests/"
+  },
+  "imports": {
+    "@std/path": "jsr:@std/path@^1",
+    "@std/async": "jsr:@std/async@^1",
+    "@std/dotenv": "jsr:@std/dotenv@^0.225",
+    "@std/fs": "jsr:@std/fs@^1",
+    "@db/sqlite": "jsr:@db/sqlite@^0.12"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true
+  }
+}

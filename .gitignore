@@ -1,0 +1,4 @@
+.env
+.entity-loom/
+*.lock
+.DS_Store
