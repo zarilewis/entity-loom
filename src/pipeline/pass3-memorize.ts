@@ -32,6 +32,9 @@ export async function generateMemories(
     llm,
     config.rateLimitMs,
     config.maxContextTokens,
+    config.entityPronouns,
+    config.userPronouns,
+    config.relationshipContext,
   );
 
   // Get all unique dates from the database, optionally filtered by date range
@@ -116,10 +119,10 @@ export async function generateMemories(
         dailyMemoriesCreated++;
         onProgress?.(`Created daily memory: ${filePath}`);
 
-        // Extract significant memories
-        const significant = await memoryWriter.extractSignificantMemories(date, result.content);
+        // Extract significant memories from raw chat logs (not from daily memory)
+        const significant = await memoryWriter.extractSignificantMemories(date, groups);
         if (significant) {
-          const sigPath = await memoryWriter.writeSignificantMemory(date, significant);
+          const sigPath = await memoryWriter.writeSignificantMemory(date, significant.prose, significant.slug);
           if (sigPath) {
             significantMemoriesCreated++;
             onProgress?.(`Created significant memory: ${sigPath}`);

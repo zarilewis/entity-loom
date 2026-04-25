@@ -23,6 +23,7 @@ deno task import      # Run full import pipeline
 deno task resume      # Resume from checkpoint
 deno task status      # Show import state
 deno task analyze     # Core Prompt analysis only
+deno task configure   # Interactive LLM configuration
 deno check src/main.ts  # Type check
 deno lint              # Lint
 deno test -A tests/    # Run tests
@@ -31,7 +32,8 @@ deno test -A tests/    # Run tests
 ## Setup
 
 ```bash
-cp .env.example .env   # Then set LLM_API_KEY and other LLM config
+deno run -A src/main.ts configure  # Interactive LLM setup (recommended)
+# Or manually: cp .env.example .env, then set LLM_API_KEY
 ```
 
 ## Key Files
@@ -41,7 +43,7 @@ cp .env.example .env   # Then set LLM_API_KEY and other LLM config
 | `src/main.ts` | CLI entry point, argument parsing |
 | `src/types.ts` | Shared types (ImportedConversation, PipelineConfig, etc.) |
 | `src/config.ts` | Configuration from env vars, flags, and interactive prompts |
-| `src/cli/commands.ts` | Command handlers (import, resume, status, analyze) |
+| `src/cli/commands.ts` | Command handlers (import, resume, status, analyze, configure) |
 | `src/parsers/chatgpt.ts` | ChatGPT JSON parser (tree traversal) |
 | `src/parsers/claude.ts` | Claude JSONL parser |
 | `src/parsers/sillytavern.ts` | SillyTavern JSONL parser |
@@ -51,6 +53,7 @@ cp .env.example .env   # Then set LLM_API_KEY and other LLM config
 | `src/writers/graph-writer.ts` | Knowledge graph population |
 | `src/writers/core-prompt.ts` | Identity analysis from system prompts |
 | `src/dedup/checkpoint.ts` | Checkpoint/resume state management |
+| `src/llm/client.ts` | OpenAI-compatible LLM client with connection test |
 
 ## Core Patterns
 

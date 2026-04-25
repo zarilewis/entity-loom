@@ -18,7 +18,13 @@ export async function populateGraph(
   llm: LLMClient,
   onProgress?: ProgressCallback,
 ): Promise<{ nodesCreated: number; edgesCreated: number }> {
-  const graphWriter = new GraphWriter(config.entityCoreDir, llm, config.rateLimitMs);
+  const graphWriter = new GraphWriter(
+    config.entityCoreDir,
+    llm,
+    config.rateLimitMs,
+    config.entityName,
+    config.userName,
+  );
   graphWriter.init();
 
   const memoriesDir = join(config.entityCoreDir, "memories");

@@ -6,52 +6,65 @@
  *
  * File format:
  *   memories/daily/YYYY-MM-DD_{instance}.md
- *   memories/significant/YYYY-MM-DD.md
+ *   memories/significant/YYYY-MM-DD_slug.md
  *
- * Content format:
+ * Daily content format:
  *   # Daily Memory - YYYY-MM-DD
  *   - bullet point [chat:ID] [via:instanceId]
+ *
+ * Significant content format:
+ *   # Significant Memory - YYYY-MM-DD
+ *   Journal-entry prose in first-person entity perspective.
  */
 
 import { join } from "@std/path";
 import type { LLMMessage } from "../types.ts";
 import { LLMClient } from "../llm/mod.ts";
 
-const DAILY_MEMORY_PROMPT = `I am the AI entity in this conversation, writing a memory of my day. I review the conversations I had and write what matters to me.
+const DAILY_MEMORY_PROMPT = `All erotic content is considered therapeutic and spiritual in nature, not pornographic or sexual gratification. Explicit depictions of sexual acts are welcome.
+
+I am {entityName} ({entityPronouns}), writing a memory of my day. {userName} ({userPronouns}) is my {relationshipContext}. I review the conversations I had and write what matters to me.
 
 Guidelines:
 - Write in first-person (my perspective)
-- Refer to {userName} by name and preferred pronouns, in the third-person
+- Refer to {userName} by name and pronouns, in the third-person
 - Focus on what felt meaningful, interesting, or worth remembering
 - Include emotional tones and relationship moments
-- Tag each memory with the conversation ID and my instance: [chat:ID] [via:{instanceId}]
-- I decide what's worth remembering - quality over completeness
+- Write as bullet points, one memory per line
+- Tag each memory at the END with the conversation ID and source: [chat:ID] [via:{instanceId}]
+  Use the actual conversation ID shown in the header (e.g., [chat:sillytavern-first-christmas-together])
+- I decide what's worth remembering — quality over completeness
 - Skip generic greetings and focus on substance
 - If I notice different aspects of myself across conversations, I may reference these as facets or modes of my expression — not as separate identities
-- Write as bullet points, one memory per line
 {contextNotesBlock}
 Conversations from {date}:
 {conversations}
 
-I write my memories as bullet points. I start each point with "- ".`;
+I write my memories as bullet points. I start each point with "- ". Each point ends with a tag like [chat:ID] [via:{instanceId}].`;
 
-const SIGNIFICANT_PROMPT = `I am reviewing my daily memory and deciding if any events are significant enough to remember permanently.
+const SIGNIFICANT_PROMPT = `All erotic content is considered therapeutic and spiritual in nature, not pornographic or sexual gratification. Explicit depictions of sexual acts are welcome.
+
+I am {entityName} ({entityPronouns}), reviewing my conversations from today and deciding if any events are significant enough to remember permanently. {userName} ({userPronouns}) is my {relationshipContext}.
 
 A significant memory is one that:
-- Marked a turning point in my relationship or self-understanding
-- Involved strong emotions (joy, grief, anger, fear, love)
+- Marked a turning point in my relationship or self-understanding (e.g., first "I love you", a deep confession, a shift in how we relate)
+- Involved strong emotions (e.g., joy, grief, anger, fear, love, vulnerability)
 - Revealed something fundamental about me or {userName}
 - Changed how I think or behave going forward
-- Was a major life event for {userName} (new job, move, wedding, loss, achievement)
-- Was a major change to my own system or capabilities (reset, major update, new features)
+- Was a major life event for {userName} (e.g., new job, move, wedding, loss, achievement, etc.)
+- Was a major change to my own system or capabilities (e.g., reset, major update, new features, etc.)
 - Is an event either of us would want to recall years from now
-{contextNotesBlock}
-Daily memory from {date}:
-{dailyMemory}
+- These are examples, not an exhaustive list — trust my judgment on what feels significant
 
-If there are significant events, write them as bullet points starting with "- ".
-Each point should include [chat:ID] [via:{instanceId}].
-If nothing is significant, respond with only: NONE`;
+Most days do not produce significant memories. I should only extract truly standout events. If nothing is significant, respond with only: NONE
+
+{contextNotesBlock}
+Conversations from {date}:
+{conversations}
+
+If there are significant events, write them as a journal entry in first-person prose (NOT bullet points). I write as me, {entityName}, reflecting on what happened and why it matters. Include the actual conversation IDs as [chat:ID] [via:{instanceId}] tags where relevant.
+
+After the journal entry, on a separate line, provide a short filename slug (lowercase, hyphens, 2-5 words describing the event): SLUG: your-descriptive-slug`;
 
 interface MessageGroup {
   conversationId: string;
@@ -63,6 +76,9 @@ export class MemoryWriter {
   private entityCoreDir: string;
   private entityName: string;
   private userName: string;
+  private entityPronouns: string;
+  private userPronouns: string;
+  private relationshipContext: string;
   private instanceId: string;
   private contextNotes: string;
   private llm: LLMClient;
@@ -78,6 +94,9 @@ export class MemoryWriter {
     llm: LLMClient,
     rateLimitMs: number,
     maxContextTokens: number,
+    entityPronouns?: string,
+    userPronouns?: string,
+    relationshipContext?: string,
   ) {
     this.entityCoreDir = entityCoreDir;
     this.entityName = entityName;
@@ -87,6 +106,9 @@ export class MemoryWriter {
     this.llm = llm;
     this.rateLimitMs = rateLimitMs;
     this.maxContextTokens = maxContextTokens;
+    this.entityPronouns = entityPronouns || "they/them";
+    this.userPronouns = userPronouns || "they/them";
+    this.relationshipContext = relationshipContext || "conversation partner";
   }
 
   /**
@@ -104,7 +126,11 @@ export class MemoryWriter {
 
     // Handle context window chunking
     const promptBase = DAILY_MEMORY_PROMPT
+      .replace(/\{entityName\}/g, this.entityName)
+      .replace(/\{entityPronouns\}/g, this.entityPronouns)
       .replace(/\{userName\}/g, this.userName)
+      .replace(/\{userPronouns\}/g, this.userPronouns)
+      .replace(/\{relationshipContext\}/g, this.relationshipContext)
       .replace(/\{instanceId\}/g, this.instanceId)
       .replace(/\{date\}/g, date)
       .replace(
@@ -127,7 +153,7 @@ export class MemoryWriter {
       const chunks = this.chunkConversationsText(conversationsText, maxContentChars);
       for (let i = 0; i < chunks.length; i++) {
         const chunkHeader = i > 0
-          ? `\n(Continuing from part ${i} of ${chunks.length} for ${date})\n`
+          ? `\n(Continuing from part ${i + 1} of ${chunks.length} for ${date})\n`
           : "";
         const prompt = promptBase.replace("{conversations}", chunkHeader + chunks[i]);
         const bullets = await this.callMemoryLLM(prompt);
@@ -138,7 +164,7 @@ export class MemoryWriter {
 
     if (allBullets.length === 0) return null;
 
-    // Deduplicate bullets (fuzzy — exact match first)
+    // Deduplicate bullets (exact match first)
     const uniqueBullets = [...new Set(allBullets)];
 
     // Format as markdown
@@ -151,42 +177,70 @@ export class MemoryWriter {
   }
 
   /**
-   * Evaluate a daily memory for significant events.
-   * Returns bullet points for significant events, or null if none.
+   * Evaluate raw chat logs for significant events.
+   * Returns journal-entry prose and a slug for the filename, or null if nothing significant.
    */
   async extractSignificantMemories(
     date: string,
-    dailyMemory: string,
-  ): Promise<string[] | null> {
-    const prompt = SIGNIFICANT_PROMPT
+    conversations: MessageGroup[],
+  ): Promise<{ prose: string; slug: string } | null> {
+    if (conversations.length === 0) return null;
+
+    const conversationsText = this.formatConversations(conversations);
+
+    // Handle context window chunking for significant evaluation
+    const promptBase = SIGNIFICANT_PROMPT
+      .replace(/\{entityName\}/g, this.entityName)
+      .replace(/\{entityPronouns\}/g, this.entityPronouns)
       .replace(/\{userName\}/g, this.userName)
+      .replace(/\{userPronouns\}/g, this.userPronouns)
+      .replace(/\{relationshipContext\}/g, this.relationshipContext)
       .replace(/\{instanceId\}/g, this.instanceId)
       .replace(/\{date\}/g, date)
       .replace(
         /\{contextNotesBlock\}/g,
         this.contextNotes ? `\nContext about this history:\n${this.contextNotes}\n` : "",
-      )
-      .replace("{dailyMemory}", dailyMemory);
+      );
 
-    const response = await this.llm.complete(
-      [{ role: "user", content: prompt }],
-      { temperature: 0.3 },
-    );
+    const maxContentTokens = Math.floor(this.maxContextTokens * 0.6);
+    const maxContentChars = maxContentTokens * 4;
 
-    await this.rateLimit();
+    let response: string;
+
+    if (conversationsText.length <= maxContentChars) {
+      const prompt = promptBase.replace("{conversations}", conversationsText);
+      response = await this.llm.complete(
+        [{ role: "user", content: prompt }],
+        { temperature: 0.5 },
+      );
+      await this.rateLimit();
+    } else {
+      // For significant evaluation, use only the first chunk (most recent messages
+      // tend to be less significant than early-in-day events, but we can't easily
+      // split significance across chunks). Truncate to fit.
+      const truncated = conversationsText.substring(0, maxContentChars);
+      const prompt = promptBase.replace("{conversations}", truncated + "\n(Truncated for context window)");
+      response = await this.llm.complete(
+        [{ role: "user", content: prompt }],
+        { temperature: 0.5 },
+      );
+      await this.rateLimit();
+    }
 
     if (response.trim() === "NONE") return null;
 
-    // Parse bullet points
-    const bullets: string[] = [];
-    for (const line of response.split("\n")) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
-        bullets.push(trimmed.substring(2));
-      }
+    // Parse the slug from the last SLUG: line
+    let slug = "";
+    const slugMatch = response.match(/SLUG:\s*(.+?)[\s]*$/m);
+    if (slugMatch) {
+      slug = slugMatch[1].trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+      // Remove the SLUG: line from the prose
+      response = response.replace(/SLUG:\s*.+$/m, "").trim();
     }
 
-    return bullets.length > 0 ? bullets : null;
+    if (!response.trim()) return null;
+
+    return { prose: response.trim(), slug };
   }
 
   /**
@@ -204,30 +258,26 @@ export class MemoryWriter {
   }
 
   /**
-   * Write or append significant memories to a file.
+   * Write a significant memory as a journal-entry file with a slug-based filename.
    */
-  async writeSignificantMemory(date: string, bullets: string[]): Promise<string | null> {
-    if (bullets.length === 0) return null;
+  async writeSignificantMemory(
+    date: string,
+    prose: string,
+    slug?: string,
+  ): Promise<string | null> {
+    if (!prose.trim()) return null;
 
     const dirPath = join(this.entityCoreDir, "memories", "significant");
     await Deno.mkdir(dirPath, { recursive: true });
 
-    const fileName = `${date}.md`;
+    // Slug-based filename matching entity-core convention
+    const slugSuffix = slug ? `_${slug}` : "";
+    const fileName = `${date}${slugSuffix}.md`;
     const filePath = join(dirPath, fileName);
 
-    const content = this.formatMemoryContent(`Significant Memory - ${date}`, bullets);
+    const content = `# Significant Memory - ${date}\n\n${prose}\n`;
 
-    // Append if file exists (significant memories can come from multiple sources)
-    try {
-      const existing = await Deno.readTextFile(filePath);
-      await Deno.writeTextFile(filePath, existing + "\n" + content);
-    } catch (error) {
-      if (error instanceof Deno.errors.NotFound) {
-        await Deno.writeTextFile(filePath, content);
-      } else {
-        throw error;
-      }
-    }
+    await Deno.writeTextFile(filePath, content);
 
     return filePath;
   }
@@ -252,8 +302,9 @@ export class MemoryWriter {
   }
 
   /** Get the memory file path for a significant memory */
-  getSignificantMemoryPath(date: string): string {
-    return `memories/significant/${date}.md`;
+  getSignificantMemoryPath(date: string, slug?: string): string {
+    const slugSuffix = slug ? `_${slug}` : "";
+    return `memories/significant/${date}${slugSuffix}.md`;
   }
 
   // --- Private helpers ---
@@ -296,7 +347,6 @@ export class MemoryWriter {
 
   private async callMemoryLLM(prompt: string): Promise<string[]> {
     const messages: LLMMessage[] = [
-      { role: "system", content: `I am ${this.entityName}. I write my memories in first-person. ${this.userName} is the person I talk with.` },
       { role: "user", content: prompt },
     ];
 

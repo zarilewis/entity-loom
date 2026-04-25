@@ -205,4 +205,31 @@ export class LLMClient {
   estimateTokens(text: string): number {
     return Math.ceil(text.length / 4);
   }
+
+  /**
+   * Test the LLM connection by sending a minimal request.
+   * Returns success/failure with latency and model info.
+   */
+  async testConnection(): Promise<{ ok: boolean; model: string; latencyMs: number; error?: string }> {
+    const start = performance.now();
+    try {
+      const response = await this.complete(
+        [{ role: "user", content: "Say hello." }],
+        { maxTokens: 10 },
+      );
+      const latency = Math.round(performance.now() - start);
+      if (response.trim()) {
+        return { ok: true, model: this.config.model, latencyMs: latency };
+      }
+      return { ok: false, model: this.config.model, latencyMs: latency, error: "Empty response" };
+    } catch (error) {
+      const latency = Math.round(performance.now() - start);
+      return {
+        ok: false,
+        model: this.config.model,
+        latencyMs: latency,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
 }

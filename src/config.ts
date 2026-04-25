@@ -85,6 +85,9 @@ export function buildConfig(flags: Record<string, string | boolean>): Partial<Pi
     dateTo: typeof flags["date-to"] === "string" ? flags["date-to"] : undefined,
     costEstimate: flags["cost-estimate"] === true,
     idPrefix: typeof flags["id-prefix"] === "string" ? flags["id-prefix"] : undefined,
+    entityPronouns: typeof flags["entity-pronouns"] === "string" ? flags["entity-pronouns"] : undefined,
+    userPronouns: typeof flags["user-pronouns"] === "string" ? flags["user-pronouns"] : undefined,
+    relationshipContext: typeof flags.relationship === "string" ? flags.relationship : undefined,
   };
 }
 
@@ -100,11 +103,13 @@ export function validateConfig(config: PipelineConfig): string[] {
   return errors;
 }
 
-/** Get LLM configuration from env vars */
-export function getLLMConfig(): { apiKey: string; baseUrl: string; model: string } {
+/** Get LLM configuration from env vars, with optional CLI overrides */
+export function getLLMConfig(
+  overrides?: { apiKey?: string; baseUrl?: string; model?: string },
+): { apiKey: string; baseUrl: string; model: string } {
   return {
-    apiKey: Deno.env.get("LLM_API_KEY") || "",
-    baseUrl: Deno.env.get("LLM_BASE_URL") || "https://openrouter.ai/api/v1",
-    model: Deno.env.get("LLM_MODEL") || "google/gemini-2.5-flash",
+    apiKey: overrides?.apiKey || Deno.env.get("LLM_API_KEY") || "",
+    baseUrl: overrides?.baseUrl || Deno.env.get("LLM_BASE_URL") || "https://openrouter.ai/api/v1",
+    model: overrides?.model || Deno.env.get("LLM_MODEL") || "google/gemini-2.5-flash",
   };
 }

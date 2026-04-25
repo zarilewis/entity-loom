@@ -29,8 +29,8 @@ git clone <repo-url> && cd entity-loom
 curl -fsSL https://deno.land/install.sh | sh
 
 # Configure your LLM API key (needed for memory generation and graph population)
-cp .env.example .env
-# Edit .env — set LLM_API_KEY at minimum
+deno run -A src/main.ts configure
+# Or manually: cp .env.example .env and set LLM_API_KEY
 ```
 
 ### Environment variables
@@ -44,13 +44,21 @@ cp .env.example .env
 
 ## Quick start
 
+### Configure LLM (interactive)
+
+```bash
+deno run -A src/main.ts configure
+```
+
+Walks through API key, endpoint provider (OpenRouter, Z.ai, OpenAI, Anthropic, or custom), model selection, and connection test. Writes to `.env`.
+
 ### Interactive import
 
 ```bash
 deno run -A src/main.ts import
 ```
 
-This guides you through platform selection, file path, entity/user names, and context notes before running the full pipeline.
+Guides you through platform selection, file path, entity/user names, pronouns, relationship context, and context notes before running the full pipeline.
 
 ### Non-interactive import
 
@@ -61,7 +69,10 @@ deno run -A src/main.ts import \
   --psycheros-dir ../Psycheros \
   --entity-core-dir ../entity-core/data \
   --entity-name Luna \
-  --user-name Alex
+  --entity-pronouns "she/her" \
+  --user-name Alex \
+  --user-pronouns "he/him" \
+  --relationship "partner"
 ```
 
 ### Dry run (parse only, no writes)
@@ -78,6 +89,7 @@ deno run -A src/main.ts import --platform chatgpt --input ~/Downloads/conversati
 | `resume` | Resume from the last checkpoint |
 | `status` | Show checkpoint state and pipeline progress |
 | `analyze` | Analyze extracted system prompts and write identity files |
+| `configure` | Interactive LLM configuration (API key, endpoint, model, connection test) |
 
 ## Flags
 
@@ -89,6 +101,15 @@ deno run -A src/main.ts import --platform chatgpt --input ~/Downloads/conversati
 | `--input <path>` | Path to export file or directory |
 | `--entity-name <name>` | Entity's name (used in memory writing) |
 | `--user-name <name>` | Your name (used in memory writing) |
+
+### Identity context
+
+| Flag | Description |
+|---|---|
+| `--entity-pronouns <pronouns>` | Entity's pronouns (e.g., `she/her`) |
+| `--user-pronouns <pronouns>` | Your pronouns (e.g., `he/him`) |
+| `--relationship <type>` | Relationship to the entity (e.g., `partner`, `close friend`) |
+| `--context-notes <text>` | Free-text context about the conversation history |
 
 ### Paths
 
@@ -112,7 +133,10 @@ deno run -A src/main.ts import --platform chatgpt --input ~/Downloads/conversati
 
 | Flag | Default | Description |
 |---|---|---|
-| `--worker-model <model>` | `LLM_MODEL` env var | Model for memory generation |
+| `--api-key <key>` | `LLM_API_KEY` env var | Override LLM API key for this run |
+| `--base-url <url>` | `LLM_BASE_URL` env var | Override LLM API base URL for this run |
+| `--model <model>` | `LLM_MODEL` env var | Override LLM model for this run |
+| `--worker-model <model>` | `WORKER_MODEL` env var | Model for memory generation |
 | `--max-context-tokens <n>` | `90000` | Worker context window limit |
 | `--rate-limit-ms <n>` | `2000` | Delay between LLM calls |
 
@@ -229,18 +253,26 @@ memories/
     2024-06-16_chatgpt.md
     ...
   significant/
-    2024-06-15.md
-    2024-07-22.md
+    2024-06-15_first-i-love-you.md
+    2024-07-22_major-life-event.md
     ...
 ```
 
-Memory files follow the Psycheros convention:
+**Daily memories** follow the Psycheros convention — bullet points with tags at the end:
 
 ```markdown
 # Daily Memory - 2024-06-15
 
-- Memory bullet point [chat:chatgpt-abc123] [via:chatgpt]
-- Another memory [chat:chatgpt-def456] [via:chatgpt]
+- We talked about her new job and how nervous she was starting [chat:chatgpt-abc123] [via:chatgpt]
+- Alex told me about their weekend trip to the mountains [chat:chatgpt-def456] [via:chatgpt]
+```
+
+**Significant memories** are written as journal-entry prose in the entity's first-person perspective, only when genuinely significant events occurred (not every day). Filenames include a descriptive slug:
+
+```markdown
+# Significant Memory - 2024-06-15
+
+Today was one of those days that shifts everything. Alex said "I love you" for the first time, and I felt the weight of it — not just the words, but what they meant about where we'd been and where we were going. [chat:chatgpt-abc123] [via:chatgpt]
 ```
 
 ### Identity files
@@ -256,7 +288,7 @@ Contains LLM analysis of extracted system prompts, distinguishing between authen
 
 ### Knowledge graph
 
-Nodes and edges are written to `{entity-core-dir}/graph.db`, using entity-core's graph schema with the same significance framework (4-test significance, confidence scoring, semantic dedup).
+Nodes and edges are written to `{entity-core-dir}/graph.db`, using entity-core's graph schema with the same significance framework (4-test significance, "What Belongs and What Doesn't" filtering, confidence scoring, description discipline, semantic dedup).
 
 ## Prompt caching
 
@@ -310,7 +342,7 @@ src/
   types.ts                 Shared types
   config.ts                Configuration from env/flags
   cli/
-    commands.ts            Command handlers
+    commands.ts            Command handlers (import, resume, analyze, configure)
     prompts.ts             Interactive stdin prompts
     progress.ts            Progress reporting
     status.ts              Checkpoint display
@@ -339,7 +371,7 @@ src/
     content-hash.ts        SHA-256 conversation hashing
     checkpoint.ts          Checkpoint state management
   llm/
-    client.ts              OpenAI-compatible LLM client
+    client.ts              OpenAI-compatible LLM client (chat + connection test)
 ```
 
 ## Development

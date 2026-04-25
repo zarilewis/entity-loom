@@ -1,7 +1,7 @@
 /**
  * Entity Loom — Command Handlers
  *
- * Implements the import, resume, and analyze CLI commands.
+ * Implements the import, resume, analyze, and configure CLI commands.
  */
 
 import { join } from "@std/path";
@@ -69,13 +69,34 @@ export async function importCommand(flags: Record<string, string | boolean>): Pr
     entityName = await askString("What name should the entity be called in memories?");
   }
 
-  // Step 4: User name
+  // Step 4: Entity pronouns
+  let entityPronouns = partial.entityPronouns;
+  if (!entityPronouns) {
+    entityPronouns = await askString("What pronouns does the entity use? (e.g., she/her)");
+    if (!entityPronouns) entityPronouns = undefined;
+  }
+
+  // Step 5: User name
   let userName = partial.userName;
   if (!userName) {
     userName = await askString("What is your name (for memory writing)?");
   }
 
-  // Step 5: Context notes
+  // Step 6: User pronouns
+  let userPronouns = partial.userPronouns;
+  if (!userPronouns) {
+    userPronouns = await askString("What pronouns do you use? (e.g., he/him)");
+    if (!userPronouns) userPronouns = undefined;
+  }
+
+  // Step 7: Relationship context
+  let relationshipContext = partial.relationshipContext;
+  if (!relationshipContext) {
+    relationshipContext = await askString("What is your relationship to the entity? (e.g., partner, close friend)");
+    if (!relationshipContext) relationshipContext = undefined;
+  }
+
+  // Step 8: Context notes
   let contextNotes = partial.contextNotes || "";
   if (!contextNotes && !partial.contextNotes) {
     contextNotes = await askMultiline(
@@ -84,7 +105,7 @@ export async function importCommand(flags: Record<string, string | boolean>): Pr
     );
   }
 
-  // Step 6: Paths
+  // Step 9: Paths
   const psycherosDir = partial.psycherosDir || join(Deno.cwd(), "..", "Psycheros");
   const entityCoreDir = partial.entityCoreDir || join(Deno.cwd(), "..", "entity-core", "data");
 
@@ -109,6 +130,9 @@ export async function importCommand(flags: Record<string, string | boolean>): Pr
     dateFrom: partial.dateFrom,
     dateTo: partial.dateTo,
     idPrefix: partial.idPrefix,
+    entityPronouns,
+    userPronouns,
+    relationshipContext,
   };
 
   // Validate
@@ -121,11 +145,16 @@ export async function importCommand(flags: Record<string, string | boolean>): Pr
     Deno.exit(1);
   }
 
-  // Validate LLM config
-  const llmConfig = getLLMConfig();
+  // Validate LLM config (support CLI overrides)
+  const llmOverrides = {
+    apiKey: typeof flags["api-key"] === "string" ? flags["api-key"] : undefined,
+    baseUrl: typeof flags["base-url"] === "string" ? flags["base-url"] : undefined,
+    model: typeof flags.model === "string" ? flags.model : undefined,
+  };
+  const llmConfig = getLLMConfig(llmOverrides);
   if (!llmConfig.apiKey && !config.dryRun) {
     progress.error("LLM_API_KEY not set in environment. Memory generation requires an LLM API key.");
-    progress.error("Set it in .env or as an environment variable.");
+    progress.error("Set it in .env or as an environment variable, or use --api-key.");
     Deno.exit(1);
   }
 
@@ -133,8 +162,9 @@ export async function importCommand(flags: Record<string, string | boolean>): Pr
   console.log("\n--- Import Summary ---");
   console.log(`  Platform:      ${config.platform}`);
   console.log(`  Input:         ${config.inputPath}`);
-  console.log(`  Entity name:   ${config.entityName}`);
-  console.log(`  User name:     ${config.userName}`);
+  console.log(`  Entity name:   ${config.entityName}${config.entityPronouns ? ` (${config.entityPronouns})` : ""}`);
+  console.log(`  User name:     ${config.userName}${config.userPronouns ? ` (${config.userPronouns})` : ""}`);
+  if (config.relationshipContext) console.log(`  Relationship:  ${config.relationshipContext}`);
   console.log(`  Instance:      ${config.instanceId}`);
   console.log(`  Psycheros dir: ${config.psycherosDir}`);
   console.log(`  Entity-core:   ${config.entityCoreDir}`);
@@ -222,6 +252,9 @@ export async function resume(flags: Record<string, string | boolean>): Promise<v
     dateFrom: partial.dateFrom,
     dateTo: partial.dateTo,
     idPrefix: partial.idPrefix,
+    entityPronouns: partial.entityPronouns,
+    userPronouns: partial.userPronouns,
+    relationshipContext: partial.relationshipContext,
   };
 
   try {
@@ -310,5 +343,85 @@ export async function analyze(flags: Record<string, string | boolean>): Promise<
     progress.log("No system prompts to analyze.");
   }
 
+  Deno.exit(0);
+}
+
+/**
+ * Interactive LLM configuration command.
+ * Walks through API key, base URL, model selection, and connection test.
+ */
+export async function configure(_flags: Record<string, string | boolean>): Promise<void> {
+
+  // Read current .env values
+  const currentKey = Deno.env.get("LLM_API_KEY") || "";
+  const currentUrl = Deno.env.get("LLM_BASE_URL") || "https://openrouter.ai/api/v1";
+  const currentModel = Deno.env.get("LLM_MODEL") || "google/gemini-2.5-flash";
+  const currentWorker = Deno.env.get("WORKER_MODEL") || "";
+
+  console.log("\n--- LLM Configuration ---\n");
+
+  // API Key
+  console.log(`Current API key: ${currentKey ? currentKey.substring(0, 8) + "..." + currentKey.slice(-4) : "(not set)"}`);
+  const newKey = await askString("Enter new API key (or press Enter to keep current)");
+  const apiKey = newKey || currentKey;
+
+  // Base URL with presets
+  console.log("\nSelect API provider:");
+  const providerOptions = [
+    { label: "OpenRouter", value: "https://openrouter.ai/api/v1" },
+    { label: "Z.ai", value: "https://api.z.ai/api/coding/paas/v4" },
+    { label: "OpenAI", value: "https://api.openai.com/v1" },
+    { label: "Anthropic", value: "https://api.anthropic.com/v1" },
+    { label: "Custom URL", value: "custom" },
+    { label: `Keep current (${currentUrl})`, value: "keep" },
+  ];
+  let baseUrl = await askChoice("API endpoint:", providerOptions);
+  if (baseUrl === "custom") {
+    baseUrl = await askString("Enter custom base URL");
+  } else if (baseUrl === "keep") {
+    baseUrl = currentUrl;
+  }
+
+  // Model selection
+  let model = await askString(`Model name`, currentModel);
+
+  // Worker model
+  let workerModel = await askString(
+    `Worker model (for memory generation, leave empty to use main model)`,
+    currentWorker || "",
+  );
+  if (!workerModel) workerModel = "";
+
+  // Write .env file
+  const envPath = join(import.meta.dirname!, "..", ".env");
+  const envContent = [
+    `LLM_API_KEY=${apiKey}`,
+    `LLM_BASE_URL=${baseUrl}`,
+    `LLM_MODEL=${model}`,
+  ];
+  if (workerModel) {
+    envContent.push(`WORKER_MODEL=${workerModel}`);
+  }
+
+  await Deno.writeTextFile(envPath, envContent.join("\n") + "\n");
+  console.log(`\nConfiguration written to ${envPath}`);
+
+  // Connection test
+  const shouldTest = await askConfirm("Test connection?", true);
+  if (shouldTest) {
+    console.log("\nTesting connection...");
+    const llm = new LLMClient({ apiKey, baseUrl, model });
+    const result = await llm.testConnection();
+
+    if (result.ok) {
+      console.log(`  Connection OK (${result.latencyMs}ms)`);
+      console.log(`  Model: ${result.model}`);
+    } else {
+      console.log(`  Connection FAILED (${result.latencyMs}ms)`);
+      if (result.error) console.log(`  Error: ${result.error}`);
+    }
+  }
+
+  console.log("\nConfiguration complete!");
   Deno.exit(0);
 }

@@ -7,7 +7,7 @@
 
 import { parseFlags } from "./config.ts";
 
-const COMMANDS = ["import", "resume", "status", "analyze"] as const;
+const COMMANDS = ["import", "resume", "status", "analyze", "configure"] as const;
 type Command = typeof COMMANDS[number];
 
 function showHelp(): void {
@@ -22,27 +22,34 @@ Commands:
   resume     Resume from last checkpoint
   status     Show import state / checkpoint info
   analyze    Core Prompt analysis only
+  configure  Interactive LLM configuration
 
 Flags:
-  --platform <type>         Source platform (chatgpt, claude, sillytavern, kindroid, letta)
-  --input <path>            Path to export file or directory
-  --psycheros-dir <path>    Path to Psycheros project (default: ../Psycheros)
-  --entity-core-dir <path>  Path to entity-core data dir (default: ../entity-core/data)
-  --entity-name <name>      Entity's name (for memory writing)
-  --user-name <name>        User's name (for memory writing)
-  --context-notes <text>    Context about the conversation history
-  --instance-id <id>        Source instance tag (default: platform name)
+  --platform <type>          Source platform (chatgpt, claude, sillytavern, kindroid, letta)
+  --input <path>             Path to export file or directory
+  --psycheros-dir <path>     Path to Psycheros project (default: ../Psycheros)
+  --entity-core-dir <path>   Path to entity-core data dir (default: ../entity-core/data)
+  --entity-name <name>       Entity's name (for memory writing)
+  --entity-pronouns <pro>    Entity's pronouns (e.g., she/her)
+  --user-name <name>         User's name (for memory writing)
+  --user-pronouns <pro>      User's pronouns (e.g., he/him)
+  --relationship <type>      Relationship type (e.g., partner, close friend)
+  --context-notes <text>     Context about the conversation history
+  --instance-id <id>         Source instance tag (default: platform name)
   --id-prefix <prefix>       Custom prefix for imported chatIDs (default: platform name)
-  --worker-model <model>    Model for memory generation
-  --max-context-tokens <n>  Worker context limit (default: 90000)
-  --rate-limit-ms <n>       Delay between LLM calls (default: 2000)
-  --dry-run                 Parse only, no writes
-  --skip-graph              Skip knowledge graph population
-  --skip-memories           Skip memory generation
-  --date-from YYYY-MM-DD    Only process memories from this date (for staged imports)
-  --date-to YYYY-MM-DD      Only process memories up to this date
-  --cost-estimate           Estimate token usage and API cost without making calls
-  --help                    Show this help
+  --worker-model <model>     Model for memory generation
+  --max-context-tokens <n>   Worker context limit (default: 90000)
+  --rate-limit-ms <n>        Delay between LLM calls (default: 2000)
+  --api-key <key>            Override LLM API key for this run
+  --base-url <url>           Override LLM API base URL for this run
+  --model <model>            Override LLM model for this run
+  --dry-run                  Parse only, no writes
+  --skip-graph               Skip knowledge graph population
+  --skip-memories            Skip memory generation
+  --date-from YYYY-MM-DD     Only process memories from this date (for staged imports)
+  --date-to YYYY-MM-DD       Only process memories up to this date
+  --cost-estimate            Estimate token usage and API cost without making calls
+  --help                     Show this help
 `);
 }
 
@@ -83,6 +90,11 @@ async function main(): Promise<void> {
     case "analyze": {
       const { analyze } = await import("./cli/commands.ts");
       await analyze(flags);
+      break;
+    }
+    case "configure": {
+      const { configure } = await import("./cli/commands.ts");
+      await configure(flags);
       break;
     }
   }

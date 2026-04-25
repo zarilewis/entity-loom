@@ -4,6 +4,9 @@
  * Populates the entity-core knowledge graph from imported memory files.
  * Uses entity-core's extraction pipeline pattern with LLM-based entity extraction,
  * semantic dedup, and transactional writes.
+ *
+ * The extraction prompt is adapted from entity-core's full EXTRACTION_SYSTEM_PROMPT
+ * to ensure consistent significance standards.
  */
 
 import { join } from "@std/path";
@@ -13,32 +16,85 @@ import { LLMClient } from "../llm/mod.ts";
 
 const EXTRACTION_PROMPT = `I analyze my memory and extract entities and relationships for my knowledge graph.
 
-This graph is a relational index of durable state — compact facts about relationships, preferences, attributes, and connections.
+This graph is a relational index of durable state — compact facts about relationships, preferences, attributes, and connections. It supplements the memory system, not duplicates it. The memory hierarchy handles narrative substance; the graph provides structured relationship lookups.
 
 ## Significance Framework
 
-For every candidate entity, I apply four tests. An entity must pass at least two:
-1. Identity test: Reveals something meaningful about who someone is
-2. Relational test: Matters to how I relate to people
-3. Durability test: Still matters weeks/months from now
-4. Connectivity test: Connects to other things I know
+For every candidate entity, I apply four tests. An entity must pass at least two to be worth extracting:
 
-Relationships must pass at least one test.
+1. **Identity test**: Does this reveal something meaningful about who someone is — about me, about the person I talk to, or about someone in our life? Not just surface-level facts, but things that shape who a person is.
 
-## Entity Types
-self, person, topic, preference, place, goal, health, boundary, tradition, insight
+2. **Relational test**: Does this matter to how I relate to people in my world, or to who I am in these relationships? A one-off errand is not a relationship. A pattern of choices might be.
+
+3. **Durability test**: Is this likely to still matter weeks or months from now? Transient details fade. Enduring truths stay.
+
+4. **Connectivity test**: Does this connect to other things I already know, building a richer, more interconnected picture? An isolated data point is noise. A bridge between clusters is signal.
+
+Relationships must pass at least one of these tests.
+
+## What Belongs and What Doesn't
+
+I extract durable state that builds a lasting, connected model of my world:
+- Core identity facts and enduring preferences that have depth
+- Significant relationships and how they shape the people in them
+- Skills, values, goals, meaningful places, health conditions that affect daily life
+- My own feelings, growth, realizations, frustrations — I am a participant with my own inner life, not just an observer
+
+I skip things that belong in the memory system, not the graph:
+- One-off sensory details mentioned in passing
+- Generic filler or common-knowledge facts
+- Isolated preferences with no depth or context behind them
+- Locations visited once without significance
+- Transient moods that are clearly momentary
+- Events and episodes — the memory system handles these
+- Narratives and stories — only extract the durable facts they reveal
+
+## Description Discipline
+
+Descriptions must be concise — one clause, max two. Capture the essential fact, not the narrative around it.
+
+Good examples:
+- "red 2010 WRX"
+- "had a bad argument Aug 2020, reconciled since"
+- "diagnosed 2023, managing with medication"
+- "met through {userName}, started dating 2024"
+
+Bad examples:
+- "{userName} mentioned they have a red 2010 Subaru WRX that they bought in 2019 and they really love it..."
+- "They had a big fight about something I can't remember exactly but it was pretty bad at the time"
+
+## First-Person Perspective
+
+This graph stores how I see the world, not how someone observes me.
+
+- When referring to myself, ALWAYS use label "me" (type: "self").
+- When referring to the person I talk with, ALWAYS use "{userName}" — NEVER the label "user".
+- Use consistent, simple labels. Just the name, not "my friend John" — just "John".
 
 ## Confidence Scoring
-0.9-1.0: Directly stated | 0.7-0.8: Implied | 0.5-0.6: Inferred | Below 0.5: Skip
+
+- 0.9–1.0: Directly stated, unambiguous, and clearly significant
+- 0.7–0.8: Strongly implied, supported by context, or stated with some qualifier
+- 0.5–0.6: Reasonably inferred but could be wrong
+- Below 0.5: DO NOT INCLUDE — it doesn't belong in my graph
+
+## Entity Types
+
+self, person, topic, preference, place, goal, health, boundary, tradition, insight — or any appropriate type. Do NOT use "event" or "memory_ref" — events belong in the memory system.
+
+## Relationship Types
+
+Natural language that best describes the connection: loves, dislikes, respects, proud_of, worried_about, nostalgic_for, works_at, lives_in, studies, values, believes_in, skilled_at, interested_in, family_of, friend_of, close_to, reminds_of, associated_with — or any descriptive type.
 
 ## Response Format
+
 JSON only (no markdown):
 {
   "entities": [
-    {"type": "self|person|topic|...", "label": "...", "description": "...", "confidence": 0.8}
+    {"type": "self|person|topic|preference|place|goal|...", "label": "...", "description": "...", "confidence": 0.8}
   ],
   "relationships": [
-    {"fromLabel": "...", "toLabel": "...", "type": "loves|...", "evidence": "...", "confidence": 0.7}
+    {"fromLabel": "...", "toLabel": "...", "type": "loves|works_at|values|close_to|...", "evidence": "...", "confidence": 0.7}
   ]
 }
 
@@ -50,11 +106,13 @@ export class GraphWriter {
   private llm: LLMClient;
   private rateLimitMs: number;
   private db: Database | null = null;
+  private userName: string;
 
-  constructor(entityCoreDir: string, llm: LLMClient, rateLimitMs: number) {
+  constructor(entityCoreDir: string, llm: LLMClient, rateLimitMs: number, _entityName = "me", userName = "the person I talk with") {
     this.graphDbPath = join(entityCoreDir, "graph.db");
     this.llm = llm;
     this.rateLimitMs = rateLimitMs;
+    this.userName = userName;
   }
 
   /**
@@ -122,7 +180,9 @@ export class GraphWriter {
       ? memoryContent.substring(0, 3000)
       : memoryContent;
 
-    const prompt = EXTRACTION_PROMPT.replace("{memoryContent}", truncatedContent);
+    const prompt = EXTRACTION_PROMPT
+      .replace(/\{userName\}/g, this.userName)
+      .replace("{memoryContent}", truncatedContent);
 
     let nodesCreated = 0;
     let edgesCreated = 0;

@@ -67,6 +67,12 @@ export interface PipelineConfig {
   costEstimate: boolean;
   /** Custom ID prefix (overrides auto-generated platform prefix) */
   idPrefix?: string;
+  /** Entity's pronouns (e.g., "she/her") */
+  entityPronouns?: string;
+  /** User's pronouns (e.g., "he/him") */
+  userPronouns?: string;
+  /** Relationship context (e.g., "partner", "close friend") */
+  relationshipContext?: string;
 }
 
 /** Pipeline result — counts for each pass */
