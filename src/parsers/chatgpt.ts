@@ -73,7 +73,7 @@ export class ChatGPTParser implements PlatformParser {
       // Read first 1KB and check for ChatGPT export structure
       const file = await Deno.open(filePath);
       const buf = new Uint8Array(1024);
-      const n = await file.read(buf);
+      const n = await file.read(buf) ?? 0;
       file.close();
 
       const head = new TextDecoder().decode(buf.slice(0, n));
@@ -176,7 +176,7 @@ export class ChatGPTParser implements PlatformParser {
     let nodeId: string | null = current_node;
 
     while (nodeId) {
-      const node = mapping[nodeId];
+      const node: ChatGPTNode | undefined = mapping[nodeId];
       if (!node) break;
       if (node.message !== null) {
         nodes.unshift(node); // Build oldest-first

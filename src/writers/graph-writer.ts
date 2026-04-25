@@ -7,6 +7,7 @@
  */
 
 import { join } from "@std/path";
+import { Database } from "@db/sqlite";
 import type { ProgressCallback } from "../types.ts";
 import { LLMClient } from "../llm/mod.ts";
 
@@ -48,10 +49,10 @@ export class GraphWriter {
   private graphDbPath: string;
   private llm: LLMClient;
   private rateLimitMs: number;
-  private db: Deno.Sqlite | null = null;
+  private db: Database | null = null;
 
   constructor(entityCoreDir: string, llm: LLMClient, rateLimitMs: number) {
-    this.graphDbPath = join(entityCoreDir, "data", "graph.db");
+    this.graphDbPath = join(entityCoreDir, "graph.db");
     this.llm = llm;
     this.rateLimitMs = rateLimitMs;
   }
@@ -63,7 +64,7 @@ export class GraphWriter {
   init(): void {
     if (this.db) return;
 
-    this.db = new Deno.Sqlite(this.graphDbPath);
+    this.db = new Database(this.graphDbPath);
 
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS graph_nodes (
@@ -146,28 +147,26 @@ export class GraphWriter {
           const existing = this.findNode(entity.label, entity.type);
           if (existing) {
             // Confirm/boost existing node
-            this.db.exec(
+            this.db.prepare(
               `UPDATE graph_nodes SET last_confirmed_at = ?, confidence = MAX(confidence, ?), version = version + 1 WHERE id = ?`,
-              [new Date().toISOString(), entity.confidence, existing.id],
-            );
+            ).run(new Date().toISOString(), entity.confidence, existing.id);
           } else {
             // Create new node
             const id = `loom-${entity.type}-${crypto.randomUUID().slice(0, 8)}`;
-            this.db.exec(
+            this.db.prepare(
               `INSERT INTO graph_nodes (id, type, label, description, source_instance, confidence, source_memory_id, created_at, updated_at, first_learned_at, version)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-              [
-                id,
-                entity.type,
-                entity.label,
-                entity.description || null,
-                sourceInstance,
-                entity.confidence,
-                memoryPath,
-                new Date().toISOString(),
-                new Date().toISOString(),
-                null,
-              ],
+            ).run(
+              id,
+              entity.type,
+              entity.label,
+              entity.description || null,
+              sourceInstance,
+              entity.confidence,
+              memoryPath,
+              new Date().toISOString(),
+              new Date().toISOString(),
+              null,
             );
             nodesCreated++;
           }
@@ -184,19 +183,18 @@ export class GraphWriter {
           if (!fromNode || !toNode) continue;
 
           const id = `loom-edge-${crypto.randomUUID().slice(0, 8)}`;
-          this.db.exec(
+          this.db.prepare(
             `INSERT INTO graph_edges (id, from_id, to_id, type, evidence, weight, created_at, updated_at, version)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-            [
-              id,
-              fromNode.id,
-              toNode.id,
-              rel.type,
-              rel.evidence || null,
-              rel.confidence,
-              new Date().toISOString(),
-              new Date().toISOString(),
-            ],
+          ).run(
+            id,
+            fromNode.id,
+            toNode.id,
+            rel.type,
+            rel.evidence || null,
+            rel.confidence,
+            new Date().toISOString(),
+            new Date().toISOString(),
           );
           edgesCreated++;
         }
@@ -218,18 +216,16 @@ export class GraphWriter {
     if (!this.db) return null;
 
     if (type) {
-      const result = this.db.query<[string]>(
+      const rows = this.db.prepare(
         "SELECT id FROM graph_nodes WHERE label = ? AND type = ? AND deleted = 0 LIMIT 1",
-        [label, type],
-      );
-      return result[0] ? { id: result[0][0] } : null;
+      ).all(label, type) as Array<{ id: string }>;
+      return rows[0] ? { id: rows[0].id } : null;
     }
 
-    const result = this.db.query<[string]>(
+    const rows = this.db.prepare(
       "SELECT id FROM graph_nodes WHERE label = ? AND deleted = 0 LIMIT 1",
-      [label],
-    );
-    return result[0] ? { id: result[0][0] } : null;
+    ).all(label) as Array<{ id: string }>;
+    return rows[0] ? { id: rows[0].id } : null;
   }
 
   /** Close the database connection */

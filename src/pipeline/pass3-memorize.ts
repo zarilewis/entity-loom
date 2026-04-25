@@ -4,7 +4,6 @@
  * Generates daily and significant memory files from stored conversations.
  */
 
-import { join } from "@std/path";
 import type {
   PipelineConfig,
   CheckpointState,
@@ -49,11 +48,11 @@ export async function generateMemories(
       params.push(config.dateTo);
     }
     query += " ORDER BY date";
-    dates = db.query<[string]>(query, params).map((row) => row[0]);
+    dates = db.query(query, params).map((row) => row.date as string);
   } else {
-    dates = db.query<[string]>(
+    dates = db.query(
       "SELECT DISTINCT DATE(created_at) as date FROM messages ORDER BY date",
-    ).map((row) => row[0]);
+    ).map((row) => row.date as string);
   }
 
   let dailyMemoriesCreated = 0;

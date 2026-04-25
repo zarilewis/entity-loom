@@ -43,7 +43,7 @@ export class SillyTavernParser implements PlatformParser {
       // Read first line and check for SillyTavern header structure
       const file = await Deno.open(filePath);
       const buf = new Uint8Array(1024);
-      const n = await file.read(buf);
+      const n = await file.read(buf) ?? 0;
       file.close();
 
       const head = new TextDecoder().decode(buf.slice(0, n));

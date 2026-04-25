@@ -86,7 +86,7 @@ export class CorePromptAnalyzer {
     const response = await this.llm.complete(messages, { temperature: 0.5 });
 
     // Write to custom identity file
-    const dirPath = join(this.entityCoreDir, "data", "custom");
+    const dirPath = join(this.entityCoreDir, "custom");
     await Deno.mkdir(dirPath, { recursive: true });
 
     const fileName = `imported_identity_${platform}.md`;

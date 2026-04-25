@@ -4,12 +4,14 @@
  * Loads configuration from environment variables, CLI flags, and interactive prompts.
  */
 
+import { join } from "@std/path";
 import type { PipelineConfig, PlatformType } from "./types.ts";
 
-// Load .env file if present
+// Load .env file from project root (next to src/)
 try {
   const { loadSync } = await import("@std/dotenv");
-  loadSync({ export: true });
+  const envPath = join(import.meta.dirname!, "..", ".env");
+  loadSync({ envPath, export: true });
 } catch {
   // .env not present, that's fine
 }

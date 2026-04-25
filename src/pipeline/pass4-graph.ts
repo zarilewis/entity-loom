@@ -21,7 +21,7 @@ export async function populateGraph(
   const graphWriter = new GraphWriter(config.entityCoreDir, llm, config.rateLimitMs);
   graphWriter.init();
 
-  const memoriesDir = join(config.entityCoreDir, "data", "memories");
+  const memoriesDir = join(config.entityCoreDir, "memories");
   let totalNodes = 0;
   let totalEdges = 0;
 

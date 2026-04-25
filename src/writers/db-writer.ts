@@ -6,7 +6,8 @@
  */
 
 import { join } from "@std/path";
-import type { ImportedConversation, ProgressCallback } from "../types.ts";
+import { Database } from "@db/sqlite";
+import type { ImportedConversation } from "../types.ts";
 
 /** Schema SQL for the tables entity-loom writes to */
 const SCHEMA_SQL = `
@@ -61,12 +62,12 @@ const SCHEMA_SQL = `
 `;
 
 export class DBWriter {
-  private db: Deno.Sqlite;
+  private db: Database;
   private dbPath: string;
 
   constructor(psycherosDir: string) {
     this.dbPath = join(psycherosDir, "psycheros.db");
-    this.db = new Deno.Sqlite(this.dbPath);
+    this.db = new Database(this.dbPath);
   }
 
   /** Initialize the database schema (idempotent) */
@@ -76,8 +77,8 @@ export class DBWriter {
 
   /** Get a list of conversation IDs already in the database */
   getExistingConversationIds(): Set<string> {
-    const result = this.db.query<[string]>("SELECT id FROM conversations");
-    return new Set(result.map((row) => row[0]));
+    const rows = this.db.prepare("SELECT id FROM conversations").all() as Array<{ id: string }>;
+    return new Set(rows.map((row) => row.id));
   }
 
   /**
@@ -89,11 +90,10 @@ export class DBWriter {
     const updatedAt = conv.updatedAt.toISOString();
 
     // Upsert conversation
-    this.db.exec(
+    this.db.prepare(
       `INSERT OR IGNORE INTO conversations (id, title, created_at, updated_at)
        VALUES (?, ?, ?, ?)`,
-      [conv.id, conv.title || null, createdAt, updatedAt],
-    );
+    ).run(conv.id, conv.title || null, createdAt, updatedAt);
 
     let messageCount = 0;
 
@@ -106,13 +106,7 @@ export class DBWriter {
     for (const msg of conv.messages) {
       if (msg.role === "system" || msg.role === "tool") continue;
 
-      insertMsg.run([
-        msg.id,
-        conv.id,
-        msg.role,
-        msg.content,
-        msg.createdAt.toISOString(),
-      ]);
+      insertMsg.run(msg.id, conv.id, msg.role, msg.content, msg.createdAt.toISOString());
       messageCount++;
     }
 
@@ -132,11 +126,10 @@ export class DBWriter {
     const summaryId = `loom-${granularity}-${date}`;
     const chatIdsStr = chatIds.join(",");
 
-    this.db.exec(
+    this.db.prepare(
       `INSERT OR IGNORE INTO memory_summaries (id, date, granularity, file_path, chat_ids, created_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [summaryId, date, granularity, filePath, chatIdsStr, new Date().toISOString()],
-    );
+    ).run(summaryId, date, granularity, filePath, chatIdsStr, new Date().toISOString());
 
     const markSummarized = this.db.prepare(
       `INSERT OR IGNORE INTO summarized_chats (chat_id, message_date, summary_id, summarized_at)
@@ -144,7 +137,7 @@ export class DBWriter {
     );
 
     for (const chatId of chatIds) {
-      markSummarized.run([chatId, date, summaryId, new Date().toISOString()]);
+      markSummarized.run(chatId, date, summaryId, new Date().toISOString());
     }
   }
 
@@ -159,30 +152,26 @@ export class DBWriter {
     const startOfDay = `${date}T00:00:00.000Z`;
     const endOfDay = `${date}T23:59:59.999Z`;
 
-    const result = this.db.query<[string, string, string, string, string]>(
+    const rows = this.db.prepare(
       `SELECT id, conversation_id, role, content, created_at
        FROM messages
        WHERE created_at >= ? AND created_at <= ? AND role IN ('user', 'assistant')
        ORDER BY created_at`,
-      [startOfDay, endOfDay],
-    );
+    ).all(startOfDay, endOfDay) as Array<{ id: string; conversation_id: string; role: string; content: string; created_at: string }>;
 
-    return result.map((row) => ({
-      id: row[0],
-      conversationId: row[1],
-      role: row[2],
-      content: row[3],
-      createdAt: row[4],
+    return rows.map((row) => ({
+      id: row.id,
+      conversationId: row.conversation_id,
+      role: row.role,
+      content: row.content,
+      createdAt: row.created_at,
     }));
   }
 
   /** Get conversation title by ID */
   getConversationTitle(convId: string): string | null {
-    const result = this.db.query<[string]>(
-      "SELECT title FROM conversations WHERE id = ?",
-      [convId],
-    );
-    return result[0]?.[0] || null;
+    const rows = this.db.prepare("SELECT title FROM conversations WHERE id = ?").all(convId) as Array<{ title: string }>;
+    return rows[0]?.title || null;
   }
 
   /** Close the database connection */
@@ -191,10 +180,10 @@ export class DBWriter {
   }
 
   /**
-   * Execute a parameterized query and return typed rows.
-   * Exposes the underlying Deno.Sqlite query for pipeline passes.
+   * Execute a parameterized query and return rows as objects.
    */
-  query<T extends unknown[]>(sql: string, params?: unknown[]): Array<{ [K in keyof T]: T[number] }> {
-    return params ? this.db.query<T>(sql, params as T) : this.db.query<T>(sql);
+  query(sql: string, params?: string[]): Record<string, unknown>[] {
+    const stmt = this.db.prepare(sql);
+    return (params ? stmt.all(...params as []) : stmt.all()) as Record<string, unknown>[];
   }
 }

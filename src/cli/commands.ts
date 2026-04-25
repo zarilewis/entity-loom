@@ -5,7 +5,7 @@
  */
 
 import { join } from "@std/path";
-import type { PipelineConfig, PlatformType, CheckpointState } from "../types.ts";
+import type { PipelineConfig, PlatformType } from "../types.ts";
 import { buildConfig, validateConfig, getLLMConfig } from "../config.ts";
 import { ProgressReporter } from "./progress.ts";
 import { askString, askChoice, askConfirm, askMultiline } from "./prompts.ts";
@@ -90,14 +90,14 @@ export async function importCommand(flags: Record<string, string | boolean>): Pr
 
   // Build config
   const config: PipelineConfig = {
-    platform,
+    platform: platform!,
     inputPath,
     psycherosDir,
     entityCoreDir,
     entityName,
     userName,
     contextNotes,
-    instanceId: (partial.instanceId as string) || platform,
+    instanceId: (partial.instanceId as string) || platform!,
     workerModel: partial.workerModel || "",
     maxContextTokens: partial.maxContextTokens || 90000,
     rateLimitMs: partial.rateLimitMs || 2000,
@@ -105,6 +105,10 @@ export async function importCommand(flags: Record<string, string | boolean>): Pr
     skipGraph: partial.skipGraph || false,
     skipMemories: partial.skipMemories || false,
     significanceThreshold: partial.significanceThreshold || 0.7,
+    costEstimate: partial.costEstimate || false,
+    dateFrom: partial.dateFrom,
+    dateTo: partial.dateTo,
+    idPrefix: partial.idPrefix,
   };
 
   // Validate
@@ -214,6 +218,10 @@ export async function resume(flags: Record<string, string | boolean>): Promise<v
     skipGraph: partial.skipGraph || false,
     skipMemories: partial.skipMemories || false,
     significanceThreshold: partial.significanceThreshold || 0.7,
+    costEstimate: partial.costEstimate || false,
+    dateFrom: partial.dateFrom,
+    dateTo: partial.dateTo,
+    idPrefix: partial.idPrefix,
   };
 
   try {

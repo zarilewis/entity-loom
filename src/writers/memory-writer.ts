@@ -14,7 +14,7 @@
  */
 
 import { join } from "@std/path";
-import type { ProgressCallback, LLMMessage } from "../types.ts";
+import type { LLMMessage } from "../types.ts";
 import { LLMClient } from "../llm/mod.ts";
 
 const DAILY_MEMORY_PROMPT = `I am the AI entity in this conversation, writing a memory of my day. I review the conversations I had and write what matters to me.
@@ -193,7 +193,7 @@ export class MemoryWriter {
    * Write a daily memory file to disk.
    */
   async writeDailyMemory(date: string, content: string): Promise<string> {
-    const dirPath = join(this.entityCoreDir, "data", "memories", "daily");
+    const dirPath = join(this.entityCoreDir, "memories", "daily");
     await Deno.mkdir(dirPath, { recursive: true });
 
     const fileName = `${date}_${this.instanceId}.md`;
@@ -209,7 +209,7 @@ export class MemoryWriter {
   async writeSignificantMemory(date: string, bullets: string[]): Promise<string | null> {
     if (bullets.length === 0) return null;
 
-    const dirPath = join(this.entityCoreDir, "data", "memories", "significant");
+    const dirPath = join(this.entityCoreDir, "memories", "significant");
     await Deno.mkdir(dirPath, { recursive: true });
 
     const fileName = `${date}.md`;
@@ -235,7 +235,7 @@ export class MemoryWriter {
   /** Check if a daily memory file already exists */
   async dailyMemoryExists(date: string): Promise<boolean> {
     const filePath = join(
-      this.entityCoreDir, "data", "memories", "daily",
+      this.entityCoreDir, "memories", "daily",
       `${date}_${this.instanceId}.md`,
     );
     try {

@@ -47,7 +47,7 @@ export class ClaudeParser implements PlatformParser {
       // Read first line and check for Claude export structure
       const file = await Deno.open(filePath);
       const buf = new Uint8Array(2048);
-      const n = await file.read(buf);
+      const n = await file.read(buf) ?? 0;
       file.close();
 
       const head = new TextDecoder().decode(buf.slice(0, n));

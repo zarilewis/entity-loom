@@ -4,7 +4,7 @@
  * Controls the 4-pass import pipeline with checkpoint support.
  */
 
-import type { PipelineConfig, PipelineResult, CheckpointState, PlatformType, ProgressCallback } from "../types.ts";
+import type { PipelineConfig, PipelineResult, CheckpointState, ImportedConversation, ProgressCallback } from "../types.ts";
 import { CheckpointManager, createCheckpoint } from "../dedup/checkpoint.ts";
 import { parseExport } from "./pass1-parse.ts";
 import { storeConversations } from "./pass2-store.ts";
@@ -44,10 +44,14 @@ export async function runPipeline(
     pass4: { nodesCreated: 0, edgesCreated: 0 },
   };
 
+  // Conversations collected during Pass 1, passed to Pass 2
+  let parsedConversations: ImportedConversation[] = [];
+
   // Pass 1: Parse
   if (!checkpointMgr.isPassComplete(checkpoint, "pass1") && !config.dryRun) {
     onProgress?.("Pass 1/4: Parsing export file...");
     const pass1Result = await parseExport(config.inputPath, config.platform, checkpoint, onProgress, config.idPrefix);
+    parsedConversations = pass1Result.conversations;
     result.pass1 = {
       conversationsParsed: pass1Result.conversations.length,
       conversationsSkipped: pass1Result.skipped,
@@ -58,6 +62,7 @@ export async function runPipeline(
   } else if (config.dryRun) {
     onProgress?.("Pass 1: Dry run — parsing only");
     const pass1Result = await parseExport(config.inputPath, config.platform, checkpoint, onProgress, config.idPrefix);
+    parsedConversations = pass1Result.conversations;
     result.pass1 = {
       conversationsParsed: pass1Result.conversations.length,
       conversationsSkipped: pass1Result.skipped,
@@ -71,10 +76,7 @@ export async function runPipeline(
   // Pass 2: Store
   if (!checkpointMgr.isPassComplete(checkpoint, "pass2")) {
     onProgress?.("Pass 2/4: Storing conversations to Psycheros DB...");
-    // Re-parse conversations from the stored state (or we could store them in checkpoint)
-    // For simplicity, re-parse just for the ones not yet stored
-    const parserResult = await parseExport(config.inputPath, config.platform, checkpoint, onProgress, config.idPrefix);
-    const toStore = parserResult.conversations.filter(
+    const toStore = parsedConversations.filter(
       (c) => !checkpointMgr.wasConversationStored(checkpoint, c.id),
     );
     const pass2Result = await storeConversations(toStore, config.psycherosDir, checkpoint, onProgress);
