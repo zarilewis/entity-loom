@@ -95,7 +95,7 @@ deno run -A src/main.ts import --platform chatgpt --input ~/Downloads/conversati
 | Flag | Default | Description |
 |---|---|---|
 | `--psycheros-dir <path>` | `../Psycheros` | Path to Psycheros project |
-| `--entity-core-dir <path>` | `../entity-core/data` | Path to entity-core data directory |
+| `--entity-core-dir <path>` | `../entity-core/data` | Path to entity-core `data/` directory (memories, graph, etc.) |
 
 ### Pipeline control
 
@@ -219,7 +219,7 @@ Conversations and messages are written to the Psycheros SQLite database using th
 
 ### Memory files
 
-Written to `{entity-core-dir}/data/memories/`:
+Written to `{entity-core-dir}/memories/`:
 
 ```
 memories/
@@ -245,7 +245,7 @@ Memory files follow the Psycheros convention:
 
 ### Identity files
 
-Written to `{entity-core-dir}/data/custom/`:
+Written to `{entity-core-dir}/custom/`:
 
 ```
 custom/
@@ -256,7 +256,7 @@ Contains LLM analysis of extracted system prompts, distinguishing between authen
 
 ### Knowledge graph
 
-Nodes and edges are written to `{entity-core-dir}/data/graph.db`, using entity-core's graph schema with the same significance framework (4-test significance, confidence scoring, semantic dedup).
+Nodes and edges are written to `{entity-core-dir}/graph.db`, using entity-core's graph schema with the same significance framework (4-test significance, confidence scoring, semantic dedup).
 
 ## Prompt caching
 
