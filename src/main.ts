@@ -7,7 +7,7 @@
 
 import { parseFlags } from "./config.ts";
 
-const COMMANDS = ["import", "resume", "status", "analyze", "configure"] as const;
+const COMMANDS = ["import", "resume", "status", "analyze", "configure", "graph"] as const;
 type Command = typeof COMMANDS[number];
 
 function showHelp(): void {
@@ -23,6 +23,7 @@ Commands:
   status     Show import state / checkpoint info
   analyze    Core Prompt analysis only
   configure  Interactive LLM configuration
+  graph      Graph preview and editing
 
 Flags:
   --platform <type>          Source platform (chatgpt, claude, sillytavern, kindroid, letta)
@@ -94,6 +95,18 @@ async function main(): Promise<void> {
     case "configure": {
       const { configure } = await import("./cli/commands.ts");
       await configure(flags);
+      break;
+    }
+    case "graph": {
+      const subcommand = args[1] || "preview";
+      if (subcommand === "preview") {
+        const { graphPreview } = await import("./cli/graph.ts");
+        await graphPreview(flags);
+      } else {
+        console.error(`Unknown graph subcommand: ${subcommand}`);
+        console.error("Run 'entity-loom --help' for usage.");
+        Deno.exit(1);
+      }
       break;
     }
   }

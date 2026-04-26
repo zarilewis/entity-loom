@@ -24,6 +24,7 @@ deno task resume      # Resume from checkpoint
 deno task status      # Show import state
 deno task analyze     # Core Prompt analysis only
 deno task configure   # Interactive LLM configuration
+deno run -A src/main.ts graph preview  # Interactive knowledge graph viewer
 deno check src/main.ts  # Type check
 deno lint              # Lint
 deno test -A tests/    # Run tests
@@ -44,6 +45,9 @@ deno run -A src/main.ts configure  # Interactive LLM setup (recommended)
 | `src/types.ts` | Shared types (ImportedConversation, PipelineConfig, etc.) |
 | `src/config.ts` | Configuration from env vars, flags, and interactive prompts |
 | `src/cli/commands.ts` | Command handlers (import, resume, status, analyze, configure) |
+| `src/cli/graph.ts` | Graph preview CLI command |
+| `src/graph/server.ts` | Graph preview HTTP server + REST API |
+| `web/graph.html` | Standalone graph viewer (vis-network, list/graph views) |
 | `src/parsers/chatgpt.ts` | ChatGPT JSON parser (tree traversal) |
 | `src/parsers/claude.ts` | Claude JSONL parser |
 | `src/parsers/sillytavern.ts` | SillyTavern JSONL parser |
