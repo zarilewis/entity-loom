@@ -353,7 +353,7 @@ src/
     letta.ts               Stub (not implemented)
   pipeline/
     orchestrator.ts        4-pass pipeline controller
-    pass1-parse.ts         Parse + normalize + ID prefixing
+    pass1-parse.ts         Parse + normalize
     pass2-store.ts         Write to Psycheros DB
     pass3-memorize.ts      Generate daily + significant memories
     pass4-graph.ts         Populate knowledge graph

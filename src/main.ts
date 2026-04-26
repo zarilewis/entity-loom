@@ -36,7 +36,6 @@ Flags:
   --relationship <type>      Relationship type (e.g., partner, close friend)
   --context-notes <text>     Context about the conversation history
   --instance-id <id>         Source instance tag (default: platform name)
-  --id-prefix <prefix>       Custom prefix for imported chatIDs (default: platform name)
   --worker-model <model>     Model for memory generation
   --max-context-tokens <n>   Worker context limit (default: 90000)
   --rate-limit-ms <n>        Delay between LLM calls (default: 2000)
