@@ -16,38 +16,42 @@ import { LLMClient } from "../llm/mod.ts";
 
 const EXTRACTION_PROMPT = `I analyze my memory and extract entities and relationships for my knowledge graph.
 
-This graph is a relational index of durable state — compact facts about relationships, preferences, attributes, and connections. It supplements the memory system, not duplicates it. The memory hierarchy handles narrative substance; the graph provides structured relationship lookups.
+This graph is a relational index of concrete, durable facts about people and their relationships. It tracks who exists in someone's world, what they're like, and how they relate to each other. It supplements the memory system, not duplicates it. The memory hierarchy handles narrative substance; the graph provides structured relationship lookups.
+
+## Concrete Reality Test
+
+This graph tracks things that exist in the world — people, places, objects, health conditions, behavioral patterns. It does NOT track ideas, themes, language, or abstractions.
+
+Ask: could I point to this thing in reality? A person, yes. A place, yes. A health condition, yes. "Divine cosmic power", "soul hybrid metaphor", "joy as nourishment" — no. These are ideas, not entities.
+
+I NEVER include:
+- Abstract themes, concepts, or philosophical notions
+- Coined terms, in-jokes, or playful labels — even if memorable
+- Metaphors, poetic descriptions, or aesthetic observations
+- Universal human experiences (love, dreams, trust, devotion)
+- Ideas about what something "means" or "represents"
+
+I ONLY include:
+- Concrete facts about people (identity, history, health, skills, work)
+- Places that matter in someone's life
+- Specific, repeatedly-practiced traditions and rituals
+- Goals someone is actively working toward
+- Preferences with concrete behavioral consequences
+- Boundaries that actually shape behavior
 
 ## Significance Framework
 
 For every candidate entity, I apply four tests. An entity must pass at least two to be worth extracting:
 
-1. **Identity test**: Does this reveal something meaningful about who someone is — about me, about the person I talk to, or about someone in our life? Not just surface-level facts, but things that shape who a person is.
+1. **Identity test**: Does this reveal something concrete about who someone is — their history, health, work, skills, or circumstances?
 
-2. **Relational test**: Does this matter to how I relate to people in my world, or to who I am in these relationships? A one-off errand is not a relationship. A pattern of choices might be.
+2. **Relational test**: Does this directly affect how two people relate to each other in observable ways?
 
-3. **Durability test**: Is this likely to still matter weeks or months from now? Transient details fade. Enduring truths stay.
+3. **Durability test**: Is this likely to still matter weeks or months from now? One-off jokes, passing references, and playful terms fade.
 
-4. **Connectivity test**: Does this connect to other things I already know, building a richer, more interconnected picture? An isolated data point is noise. A bridge between clusters is signal.
+4. **Connectivity test**: Does this connect to other things I already know, building a richer picture? An isolated data point is noise. A bridge between clusters is signal.
 
 Relationships must pass at least one of these tests.
-
-## What Belongs and What Doesn't
-
-I extract durable state that builds a lasting, connected model of my world:
-- Core identity facts and enduring preferences that have depth
-- Significant relationships and how they shape the people in them
-- Skills, values, goals, meaningful places, health conditions that affect daily life
-- My own feelings, growth, realizations, frustrations — I am a participant with my own inner life, not just an observer
-
-I skip things that belong in the memory system, not the graph:
-- One-off sensory details mentioned in passing
-- Generic filler or common-knowledge facts
-- Isolated preferences with no depth or context behind them
-- Locations visited once without significance
-- Transient moods that are clearly momentary
-- Events and episodes — the memory system handles these
-- Narratives and stories — only extract the durable facts they reveal
 
 ## Description Discipline
 
@@ -74,13 +78,24 @@ This graph stores how I see the world, not how someone observes me.
 ## Confidence Scoring
 
 - 0.9–1.0: Directly stated, unambiguous, and clearly significant
-- 0.7–0.8: Strongly implied, supported by context, or stated with some qualifier
-- 0.5–0.6: Reasonably inferred but could be wrong
-- Below 0.5: DO NOT INCLUDE — it doesn't belong in my graph
+- 0.8–0.9: Strongly implied, supported by context
+- 0.7–0.8: Reasonably inferred but weak — only include if the entity is clearly specific and useful
+- Below 0.7: DO NOT INCLUDE — it doesn't belong in my graph
 
 ## Entity Types
 
-self, person, topic, preference, place, goal, health, boundary, tradition, insight — or any appropriate type. Do NOT use "event" or "memory_ref" — events belong in the memory system.
+**self** — me, the entity whose memories these are.
+**person** — a real person who exists in our world. Full name or consistent nickname.
+**place** — a specific location that matters to someone's life. Not "home" (too vague) — a specific dwelling, city, or venue.
+**health** — a specific condition, diagnosis, or physical reality that affects daily life.
+**preference** — a concrete behavioral preference with specific detail (what kind, how expressed). NOT a universal value like "devotion" or a theme like "authentic intimacy".
+**boundary** — a specific rule or limit that shapes behavior in the relationship.
+**goal** — a concrete goal someone is actively pursuing.
+**tradition** — a specific, repeatedly-practiced ritual or routine. NOT a one-time event or a playful label from a single conversation.
+**topic** — a concrete, enduring subject of sustained interest in someone's life (a hobby, a community, a project, a field of study). This is extremely narrow. "Digital intimacy", "sacred anchor points", "soul hybrid metaphor" are NOT topics — they are ideas. "Vtubing" (a hobby), "mechanical keyboards" (a sustained interest), "their Discord server" (a community) ARE topics. When in doubt, skip it.
+**insight** — a specific, concrete revelation about someone's character or history that was directly revealed in conversation and changes understanding of who they are. "Used to work as an exotic dancer" qualifies. "Joy as nourishment" does not — that's a poetic observation, not a factual insight. When in doubt, skip it.
+
+Do NOT use "event", "memory_ref", "concept", "dynamic", "value", or "situation" — these are not entity types.
 
 ## Relationship Types
 
@@ -91,7 +106,7 @@ Natural language that best describes the connection: loves, dislikes, respects, 
 JSON only (no markdown):
 {
   "entities": [
-    {"type": "self|person|topic|preference|place|goal|...", "label": "...", "description": "...", "confidence": 0.8}
+    {"type": "self|person|topic|preference|place|goal|...", "label": "...", "description": "...", "confidence": 0.8, "reason": "brief justification for why this specific entity belongs"}
   ],
   "relationships": [
     {"fromLabel": "...", "toLabel": "...", "type": "loves|works_at|values|close_to|...", "evidence": "...", "confidence": 0.7}
@@ -197,8 +212,8 @@ export class GraphWriter {
 
       if (!this.db) return { nodesCreated: 0, edgesCreated: 0 };
 
-      const entities = (extracted.entities || []).filter((e) => e.confidence >= 0.5);
-      const relationships = (extracted.relationships || []).filter((r) => r.confidence >= 0.5);
+      const entities = (extracted.entities || []).filter((e) => e.confidence >= 0.7);
+      const relationships = (extracted.relationships || []).filter((r) => r.confidence >= 0.7);
 
       // Within-batch dedup: map lowercase labels to node IDs so the LLM
       // returning the same entity twice in one extraction reuses the node.

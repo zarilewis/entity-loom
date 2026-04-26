@@ -285,7 +285,17 @@ Contains LLM analysis of extracted system prompts, distinguishing between authen
 
 ### Knowledge graph
 
-Nodes and edges are written to `{entity-core-dir}/graph.db`, using entity-core's graph schema with the same significance framework (4-test significance, "What Belongs and What Doesn't" filtering, confidence scoring, description discipline, semantic dedup).
+Nodes and edges are written to `{entity-core-dir}/graph.db`, using entity-core's graph schema.
+
+Pass 4 runs in two phases:
+
+1. **Extraction** — Each memory file is sent to the LLM with a prompt that enforces a concrete-reality standard: the graph tracks people, places, health facts, preferences, traditions, goals, and boundaries — not abstract themes, coined terms, metaphors, or philosophical notions. A confidence floor of 0.7 filters weak extractions. The `topic` and `insight` entity types are restricted to narrow, concrete use cases.
+
+2. **Consolidation** — After all memories are processed, a rule-based pass (no LLM calls) prunes and merges nodes:
+   - Isolated node pruning: removes non-person/self nodes with 0 connections
+   - Generic topic detection: removes low-connectivity nodes matching vague patterns (single common words, `sacred \w+`, `\w+ connection`, `\w+ dynamic`, `\w+ intimacy`)
+   - Duplicate merging: case-insensitive and containment-based label dedup with edge re-parenting
+   - Edge cleanup: soft-deletes edges connected to pruned nodes
 
 ## Prompt caching
 
@@ -329,7 +339,7 @@ Exit codes: `0` = success, `1` = fatal error, `2` = partial completion (checkpoi
 - **Conversation-level**: SHA-256 hash of ordered message content, stored in checkpoint
 - **Message-level**: Consecutive identical role+content messages deduplicated
 - **Memory file-level**: Checks if daily memory file exists before writing
-- **Graph-level**: Case-insensitive label dedup on nodes, within-batch dedup via label map, edge dedup on (from, to, type) triple, confirm-and-boost on matches, transactional writes
+- **Graph-level**: Case-insensitive label dedup on nodes, within-batch dedup via label map, edge dedup on (from, to, type) triple, confirm-and-boost on matches, transactional writes. Post-extraction consolidation pass prunes isolated/generic nodes and merges duplicates.
 
 ## Architecture
 
@@ -362,7 +372,8 @@ src/
   writers/
     db-writer.ts           SQLite writes (Psycheros schema)
     memory-writer.ts       Daily + significant memory files
-    graph-writer.ts        Knowledge graph population
+    graph-writer.ts        Knowledge graph extraction (LLM-based)
+    graph-consolidator.ts  Knowledge graph consolidation (rule-based)
     core-prompt.ts         Identity analysis from system prompts
   dedup/
     content-hash.ts        SHA-256 conversation hashing

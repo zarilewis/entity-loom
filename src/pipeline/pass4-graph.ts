@@ -7,6 +7,7 @@
 import { join } from "@std/path";
 import type { PipelineConfig, CheckpointState, ProgressCallback } from "../types.ts";
 import { GraphWriter } from "../writers/graph-writer.ts";
+import { GraphConsolidator } from "../writers/graph-consolidator.ts";
 import { LLMClient } from "../llm/mod.ts";
 
 /**
@@ -44,6 +45,16 @@ export async function populateGraph(
   totalEdges += sigResults.edges;
 
   graphWriter.close();
+
+  // Post-extraction consolidation: prune low-value nodes and merge duplicates
+  if (totalNodes > 0 || totalEdges > 0) {
+    const consolidator = new GraphConsolidator(config.entityCoreDir);
+    const { nodesRemoved, edgesRemoved, nodesMerged } = consolidator.consolidate(onProgress);
+    onProgress?.(
+      `Graph consolidation: removed ${nodesRemoved} nodes, ${edgesRemoved} edges, merged ${nodesMerged} nodes`,
+    );
+  }
+
   onProgress?.(`Graph populated: ${totalNodes} nodes, ${totalEdges} edges`);
 
   return { nodesCreated: totalNodes, edgesCreated: totalEdges };

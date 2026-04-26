@@ -54,7 +54,8 @@ deno run -A src/main.ts configure  # Interactive LLM setup (recommended)
 | `src/pipeline/mod.ts` | Pipeline orchestrator (4-pass controller) |
 | `src/writers/db-writer.ts` | SQLite writes (conversations + messages) |
 | `src/writers/memory-writer.ts` | Daily + significant memory files |
-| `src/writers/graph-writer.ts` | Knowledge graph population |
+| `src/writers/graph-writer.ts` | Knowledge graph population (LLM-based extraction) |
+| `src/writers/graph-consolidator.ts` | Post-extraction graph consolidation (rule-based pruning + merging) |
 | `src/writers/core-prompt.ts` | Identity analysis from system prompts |
 | `src/dedup/checkpoint.ts` | Checkpoint/resume state management |
 | `src/llm/client.ts` | OpenAI-compatible LLM client with connection test |
