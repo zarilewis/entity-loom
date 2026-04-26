@@ -97,8 +97,10 @@ export class SillyTavernParser implements PlatformParser {
     const header = JSON.parse(lines[0]) as STHeader;
     const messages: ImportedMessage[] = [];
 
-    // Use filename as conversation ID (strip .jsonl)
-    const fileName = filePath.split("/").pop()?.replace(".jsonl", "") || "unknown";
+    // Generate deterministic conversation ID from file content (SHA-256 → UUID format)
+    // This ensures the same file always gets the same ID on re-import.
+    const fileHash = await sha256Hex(text);
+    const conversationId = formatAsUuid(fileHash);
 
     for (let i = 1; i < lines.length; i++) {
       try {
@@ -131,10 +133,10 @@ export class SillyTavernParser implements PlatformParser {
     // Sort by timestamp
     messages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
-    const title = header.character_name || fileName;
+    const title = header.character_name || filePath.split("/").pop()?.replace(".jsonl", "") || "unknown";
 
     return {
-      id: `st-${fileName}`,
+      id: conversationId,
       title: `[sillytavern] ${title}`,
       createdAt: messages.length > 0 ? messages[0].createdAt : new Date(),
       updatedAt: messages.length > 0 ? messages[messages.length - 1].createdAt : new Date(),
@@ -170,4 +172,14 @@ export class SillyTavernParser implements PlatformParser {
     cleaned = cleaned.replace(/\[img\b[^\]]*\][^\[]*?\[\/img\]/gi, "[image was here]");
     return cleaned;
   }
+}
+
+/**
+ * Format a hex hash as a UUID string (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).
+ * Takes the first 32 hex chars and inserts hyphens at standard UUID positions.
+ * The result is deterministic and compatible with Psycheros's UUID-based chat ID system.
+ */
+function formatAsUuid(hexHash: string): string {
+  const h = hexHash.slice(0, 32);
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
 }

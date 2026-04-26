@@ -86,6 +86,11 @@ export class LLMClient {
    */
   async complete(messages: LLMMessage[], options?: ChatOptions): Promise<string> {
     let lastError: Error | null = null;
+    // Default 120s timeout per attempt to prevent hangs
+    const controller = options?.signal
+      ? null
+      : new AbortController();
+    const timeout = setTimeout(() => controller?.abort(), 120000);
 
     for (let attempt = 0; attempt < this.config.maxRetries; attempt++) {
       try {
@@ -111,7 +116,7 @@ export class LLMClient {
           method: "POST",
           headers: this.getHeaders(),
           body: JSON.stringify(body),
-          signal: options?.signal,
+          signal: options?.signal || controller?.signal,
         });
 
         if (response.status === 429) {
@@ -130,15 +135,20 @@ export class LLMClient {
         }
 
         const data = await response.json();
+        clearTimeout(timeout);
         return data.choices?.[0]?.message?.content || "";
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        if (lastError.message.includes("LLM API error")) throw lastError;
+        if (lastError.message.includes("LLM API error")) {
+          clearTimeout(timeout);
+          throw lastError;
+        }
         // Network error or timeout — retry
         continue;
       }
     }
 
+    clearTimeout(timeout);
     throw lastError || new Error("LLM request failed after retries");
   }
 

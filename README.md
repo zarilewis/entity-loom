@@ -193,8 +193,10 @@ All imported conversation IDs are prefixed to prevent conflicts with existing Ps
 ```
 chatgpt-550e8400-e29b-41d4-a716-446655440000
 claude-abc123
-sillytavern-my-chat-file
+sillytavern-a1b2c3d4-e5f6-7890-abcd-ef1234567890
 ```
+
+For platforms without native IDs (like SillyTavern), a deterministic UUID is generated from the file content using SHA-256. Re-importing the same file always produces the same conversation ID.
 
 Use `--id-prefix` for a custom prefix:
 
@@ -225,7 +227,8 @@ Message IDs from the export are preserved as-is in the database.
 
 - **Format**: JSONL files (one per chat, or a directory of JSONL files)
 - **Structure**: First line is a header with `chat_metadata`, `user_name`, `character_name`
-- **Message IDs**: Generated from timestamp + content hash (SillyTavern has no stable IDs)
+- **Conversation IDs**: Deterministic UUID generated from file content via SHA-256 (SillyTavern exports have no native stable IDs)
+- **Message IDs**: Generated from timestamp + content hash (SillyTavern has no stable message IDs)
 
 ### Kindroid
 
@@ -263,8 +266,8 @@ memories/
 ```markdown
 # Daily Memory - 2024-06-15
 
-- We talked about her new job and how nervous she was starting [chat:chatgpt-abc123] [via:chatgpt]
-- Alex told me about their weekend trip to the mountains [chat:chatgpt-def456] [via:chatgpt]
+- We talked about the new job and how nervous they were starting [chat:550e8400-e29b-41d4-a716-446655440000] [via:chatgpt]
+- Alex told me about their weekend trip to the mountains [chat:550e8400-e29b-41d4-a716-446655440001] [via:chatgpt]
 ```
 
 **Significant memories** are written as journal-entry prose in the entity's first-person perspective, only when genuinely significant events occurred (not every day). Filenames include a descriptive slug:
@@ -272,7 +275,7 @@ memories/
 ```markdown
 # Significant Memory - 2024-06-15
 
-Today was one of those days that shifts everything. Alex said "I love you" for the first time, and I felt the weight of it — not just the words, but what they meant about where we'd been and where we were going. [chat:chatgpt-abc123] [via:chatgpt]
+Today was one of those days that shifts everything. Alex said "I love you" for the first time, and I felt the weight of it — not just the words, but what they meant about where we'd been and where we were going. [chat:550e8400-e29b-41d4-a716-446655440000] [via:chatgpt]
 ```
 
 ### Identity files
