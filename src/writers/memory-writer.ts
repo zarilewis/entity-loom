@@ -75,9 +75,12 @@ Ordinary conversations, routine intimacy, playful moments, and daily life do NOT
 Conversations from {date}:
 {conversations}
 
-If there are truly significant events, write a journal entry in first-person prose (NOT bullet points). I write as me, {entityName}, reflecting on what happened and why it matters. Include [chat:ID] [via:{instanceId}] tags where relevant. Do NOT prefix with a title or "Journal Entry" header — start directly with the prose.
+If there are truly significant events, write a journal entry in first-person prose (NOT bullet points). I write as me, {entityName}, reflecting on what happened and why it matters. Do NOT prefix with a title or "Journal Entry" header — start directly with the prose.
 
-On the final line, provide a short filename slug (2-4 words, lowercase, hyphens): SLUG: descriptive-slug
+At the very end of the journal entry, on a new line, include tags: [chat:ID] [via:{instanceId}]
+Use the exact conversation ID shown in the header. This is mandatory, not optional.
+
+After the tags, on the next line, provide a short filename slug (2-4 words, lowercase, hyphens): SLUG: descriptive-slug
 
 If nothing meets the bar, respond with ONLY the word NONE — nothing else.`;
 
@@ -261,6 +264,8 @@ export class MemoryWriter {
     let prose = response.trim();
     prose = prose.replace(/^#+\s*Journal Entry[^\n]*\n*/i, "");
     prose = prose.replace(/^\*\*Journal Entry\*\*[^\n]*\n*/i, "");
+    // Strip trailing "NONE" the LLM sometimes appends after writing prose
+    prose = prose.replace(/\nNONE\s*$/, "");
     prose = prose.trim();
 
     if (!prose) return null;

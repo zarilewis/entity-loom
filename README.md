@@ -144,8 +144,7 @@ deno run -A src/main.ts import --platform chatgpt --input ~/Downloads/conversati
 
 | Flag | Default | Description |
 |---|---|---|
-| `--instance-id <id>` | Platform name | Source instance tag (used in checkpoint and memory filenames) |
-| `--id-prefix <prefix>` | Platform name | Custom prefix for imported chatIDs |
+| `--instance-id <id>` | Platform name | Source instance tag (used in checkpoint, memory filenames, and [via:] tags) |
 | `--context-notes <text>` | — | Free-text context about the conversation history |
 
 ### Other
@@ -186,24 +185,19 @@ deno run -A src/main.ts import \
 
 The checkpoint system prevents duplicate processing. Conversations already parsed in the first run are skipped in the second.
 
-## ID prefixing
+## Conversation IDs
 
-All imported conversation IDs are prefixed to prevent conflicts with existing Psycheros conversations. By default, the platform name is used:
+Imported conversation IDs are preserved as-is from the export format:
 
 ```
-chatgpt-550e8400-e29b-41d4-a716-446655440000
-claude-abc123
-sillytavern-a1b2c3d4-e5f6-7890-abcd-ef1234567890
+chatgpt:   550e8400-e29b-41d4-a716-446655440000  (native UUID from export)
+claude:    abc123-...                                (native UUID from export)
+sillytavern: a1b2c3d4-e5f6-7890-abcd-ef1234567890  (deterministic UUID from file content)
 ```
 
 For platforms without native IDs (like SillyTavern), a deterministic UUID is generated from the file content using SHA-256. Re-importing the same file always produces the same conversation ID.
 
-Use `--id-prefix` for a custom prefix:
-
-```bash
---id-prefix old-chatgpt
-# produces: old-chatgpt-550e8400-e29b-41d4-a716-446655440000
-```
+The `[via:instance]` tag in memory files tracks which platform/instance a conversation came from. No platform prefix is added to the conversation ID itself, keeping it compatible with Psycheros's UUID-based chat ID system.
 
 Message IDs from the export are preserved as-is in the database.
 

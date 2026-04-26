@@ -2,8 +2,8 @@
  * Entity Loom — Pass 1: Parse
  *
  * Parses the export file and normalizes into ImportedConversation[].
- * Applies ID prefix to conversation IDs to prevent conflicts with
- * existing Psycheros chatIDs.
+ * Conversation IDs are used as-is (no prefixing).
+ * The [via:] tag in memory files handles instance/platform tracking.
  */
 
 import type {
@@ -16,40 +16,15 @@ import { createParser } from "../parsers/mod.ts";
 import { hashConversation } from "../dedup/content-hash.ts";
 
 /**
- * Apply prefix to a conversation ID.
- * Uses custom prefix if provided, otherwise uses the platform name.
- */
-function prefixConvId(id: string, platform: PlatformType, customPrefix?: string): string {
-  const prefix = customPrefix || platform;
-  return `${prefix}-${id}`;
-}
-
-/**
- * Apply prefix to conversation ID. Message IDs are kept as-is.
- */
-function prefixConversationIds(
-  conv: ImportedConversation,
-  platform: PlatformType,
-  customPrefix?: string,
-): ImportedConversation {
-  const prefixedConvId = prefixConvId(conv.id, platform, customPrefix);
-
-  return {
-    ...conv,
-    id: prefixedConvId,
-  };
-}
-
-/**
  * Parse the export file and return conversations, skipping already-parsed ones.
- * Conversation IDs are prefixed; message IDs are preserved as-is.
+ * Conversation IDs are preserved as-is from the parser; message IDs are preserved too.
  */
 export async function parseExport(
   inputPath: string,
   platform: PlatformType,
   checkpoint: CheckpointState,
   onProgress?: ProgressCallback,
-  idPrefix?: string,
+  _idPrefix?: string,
 ): Promise<{ conversations: ImportedConversation[]; skipped: number }> {
   const parser = createParser(platform);
   const allConversations = await parser.parse(inputPath);
@@ -60,19 +35,16 @@ export async function parseExport(
   let skipped = 0;
 
   for (const conv of allConversations) {
-    // Apply prefix to conversation ID
-    const prefixed = prefixConversationIds(conv, platform, idPrefix);
-
-    // Check dedup hash (computed on raw content, keyed by prefixed ID)
+    // Check dedup hash (computed on raw content, keyed by conversation ID)
     const hash = await hashConversation(conv);
 
-    if (checkpoint.pass1.conversationHashes[prefixed.id] === hash) {
+    if (checkpoint.pass1.conversationHashes[conv.id] === hash) {
       skipped++;
       continue;
     }
 
-    conversations.push(prefixed);
-    checkpoint.pass1.conversationHashes[prefixed.id] = hash;
+    conversations.push(conv);
+    checkpoint.pass1.conversationHashes[conv.id] = hash;
   }
 
   if (skipped > 0) {
