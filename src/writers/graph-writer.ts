@@ -184,9 +184,6 @@ export class GraphWriter {
       .replace(/\{userName\}/g, this.userName)
       .replace("{memoryContent}", truncatedContent);
 
-    let nodesCreated = 0;
-    let edgesCreated = 0;
-
     try {
       const response = await this.llm.complete(
         [{ role: "user", content: prompt }],
@@ -198,22 +195,36 @@ export class GraphWriter {
         relationships?: Array<{ fromLabel: string; toLabel: string; type: string; evidence?: string; confidence: number }>;
       };
 
-      // Process entities
-      if (extracted.entities && this.db) {
-        for (const entity of extracted.entities) {
-          if (entity.confidence < 0.5) continue;
+      if (!this.db) return { nodesCreated: 0, edgesCreated: 0 };
 
-          // Semantic dedup: check for existing node with same label+type
+      const entities = (extracted.entities || []).filter((e) => e.confidence >= 0.5);
+      const relationships = (extracted.relationships || []).filter((r) => r.confidence >= 0.5);
+
+      // Within-batch dedup: map lowercase labels to node IDs so the LLM
+      // returning the same entity twice in one extraction reuses the node.
+      const labelToId = new Map<string, string>();
+
+      // Use a transaction so a failure mid-write doesn't leave partial state
+      let nodesCreated = 0;
+      let edgesCreated = 0;
+
+      this.db!.exec("BEGIN");
+      try {
+        // Process entities
+        for (const entity of entities) {
+          const labelLower = entity.label.toLowerCase();
+          if (labelToId.has(labelLower)) continue;
+
           const existing = this.findNode(entity.label, entity.type);
           if (existing) {
+            labelToId.set(labelLower, existing.id);
             // Confirm/boost existing node
-            this.db.prepare(
+            this.db!.prepare(
               `UPDATE graph_nodes SET last_confirmed_at = ?, confidence = MAX(confidence, ?), version = version + 1 WHERE id = ?`,
             ).run(new Date().toISOString(), entity.confidence, existing.id);
           } else {
-            // Create new node
             const id = `loom-${entity.type}-${crypto.randomUUID().slice(0, 8)}`;
-            this.db.prepare(
+            this.db!.prepare(
               `INSERT INTO graph_nodes (id, type, label, description, source_instance, confidence, source_memory_id, created_at, updated_at, first_learned_at, version)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
             ).run(
@@ -228,63 +239,86 @@ export class GraphWriter {
               new Date().toISOString(),
               null,
             );
+            labelToId.set(labelLower, id);
             nodesCreated++;
           }
         }
-      }
 
-      // Process relationships
-      if (extracted.relationships && this.db) {
-        for (const rel of extracted.relationships) {
-          if (rel.confidence < 0.5) continue;
+        // Process relationships
+        for (const rel of relationships) {
+          const fromId = labelToId.get(rel.fromLabel.toLowerCase())
+            ?? this.findNode(rel.fromLabel)?.id;
+          const toId = labelToId.get(rel.toLabel.toLowerCase())
+            ?? this.findNode(rel.toLabel)?.id;
+          if (!fromId || !toId) continue;
 
-          const fromNode = this.findNode(rel.fromLabel);
-          const toNode = this.findNode(rel.toLabel);
-          if (!fromNode || !toNode) continue;
-
-          const id = `loom-edge-${crypto.randomUUID().slice(0, 8)}`;
-          this.db.prepare(
-            `INSERT INTO graph_edges (id, from_id, to_id, type, evidence, weight, created_at, updated_at, version)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-          ).run(
-            id,
-            fromNode.id,
-            toNode.id,
-            rel.type,
-            rel.evidence || null,
-            rel.confidence,
-            new Date().toISOString(),
-            new Date().toISOString(),
-          );
-          edgesCreated++;
+          const existingEdge = this.findEdge(fromId, toId, rel.type);
+          if (existingEdge) {
+            // Confirm/boost existing edge
+            this.db!.prepare(
+              `UPDATE graph_edges SET last_confirmed_at = ?, weight = MAX(weight, ?), version = version + 1 WHERE id = ?`,
+            ).run(new Date().toISOString(), rel.confidence, existingEdge.id);
+          } else {
+            const id = `loom-edge-${crypto.randomUUID().slice(0, 8)}`;
+            this.db!.prepare(
+              `INSERT INTO graph_edges (id, from_id, to_id, type, evidence, weight, created_at, updated_at, version)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+            ).run(
+              id,
+              fromId,
+              toId,
+              rel.type,
+              rel.evidence || null,
+              rel.confidence,
+              new Date().toISOString(),
+              new Date().toISOString(),
+            );
+            edgesCreated++;
+          }
         }
+
+        this.db!.exec("COMMIT");
+      } catch {
+        this.db!.exec("ROLLBACK");
+        throw new Error(`Graph write failed for ${memoryPath}`);
       }
+
+      // Rate limit between LLM calls
+      await new Promise((resolve) => setTimeout(resolve, this.rateLimitMs));
+
+      return { nodesCreated, edgesCreated };
     } catch (error) {
       if (progress) {
         progress(`Graph extraction failed for ${memoryPath}: ${error instanceof Error ? error.message : String(error)}`);
       }
+      return { nodesCreated: 0, edgesCreated: 0 };
     }
-
-    // Rate limit between LLM calls
-    await new Promise((resolve) => setTimeout(resolve, this.rateLimitMs));
-
-    return { nodesCreated, edgesCreated };
   }
 
-  /** Find an existing node by label (and optionally type) */
+  /** Find an existing node by label (case-insensitive), optionally filtered by type */
   private findNode(label: string, type?: string): { id: string } | null {
     if (!this.db) return null;
 
     if (type) {
       const rows = this.db.prepare(
-        "SELECT id FROM graph_nodes WHERE label = ? AND type = ? AND deleted = 0 LIMIT 1",
+        "SELECT id FROM graph_nodes WHERE LOWER(label) = LOWER(?) AND type = ? AND deleted = 0 LIMIT 1",
       ).all(label, type) as Array<{ id: string }>;
       return rows[0] ? { id: rows[0].id } : null;
     }
 
     const rows = this.db.prepare(
-      "SELECT id FROM graph_nodes WHERE label = ? AND deleted = 0 LIMIT 1",
+      "SELECT id FROM graph_nodes WHERE LOWER(label) = LOWER(?) AND deleted = 0 LIMIT 1",
     ).all(label) as Array<{ id: string }>;
+    return rows[0] ? { id: rows[0].id } : null;
+  }
+
+  /** Find an existing edge between two nodes with the same type */
+  private findEdge(fromId: string, toId: string, type: string): { id: string } | null {
+    if (!this.db) return null;
+
+    const rows = this.db.prepare(
+      "SELECT id FROM graph_edges WHERE from_id = ? AND to_id = ? AND type = ? AND deleted = 0 LIMIT 1",
+    ).all(fromId, toId, type) as Array<{ id: string }>;
     return rows[0] ? { id: rows[0].id } : null;
   }
 

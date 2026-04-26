@@ -33,7 +33,9 @@ export async function populateGraph(
 
   // Process daily memory files
   const dailyDir = join(memoriesDir, "daily");
-  await processMemoryDirectory(dailyDir, config.instanceId, graphWriter, checkpoint, onProgress);
+  const dailyResults = await processMemoryDirectory(dailyDir, config.instanceId, graphWriter, checkpoint, onProgress);
+  totalNodes += dailyResults.nodes;
+  totalEdges += dailyResults.edges;
 
   // Process significant memory files
   const significantDir = join(memoriesDir, "significant");

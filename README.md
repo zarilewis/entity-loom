@@ -329,7 +329,7 @@ Exit codes: `0` = success, `1` = fatal error, `2` = partial completion (checkpoi
 - **Conversation-level**: SHA-256 hash of ordered message content, stored in checkpoint
 - **Message-level**: Consecutive identical role+content messages deduplicated
 - **Memory file-level**: Checks if daily memory file exists before writing
-- **Graph-level**: Label-based dedup on nodes, confidence boosting on matches
+- **Graph-level**: Case-insensitive label dedup on nodes, within-batch dedup via label map, edge dedup on (from, to, type) triple, confirm-and-boost on matches, transactional writes
 
 ## Architecture
 
