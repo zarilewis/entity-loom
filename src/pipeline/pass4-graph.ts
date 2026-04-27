@@ -1,26 +1,28 @@
 /**
  * Entity Loom — Pass 4: Graph
  *
- * Populates the entity-core knowledge graph from generated memory files.
+ * Populates the knowledge graph from generated memory files.
  */
 
 import { join } from "@std/path";
 import type { PipelineConfig, CheckpointState, ProgressCallback } from "../types.ts";
 import { GraphWriter } from "../writers/graph-writer.ts";
 import { GraphConsolidator } from "../writers/graph-consolidator.ts";
-import { LLMClient } from "../llm/mod.ts";
+import type { LLMClient } from "../llm/mod.ts";
 
 /**
- * Populate the knowledge graph from memory files.
+ * Populate the knowledge graph from memory files in the package directory.
  */
 export async function populateGraph(
+  packageDir: string,
   config: PipelineConfig,
   checkpoint: CheckpointState,
   llm: LLMClient,
   onProgress?: ProgressCallback,
 ): Promise<{ nodesCreated: number; edgesCreated: number }> {
+  const graphDbPath = join(packageDir, "graph.db");
   const graphWriter = new GraphWriter(
-    config.entityCoreDir,
+    graphDbPath,
     llm,
     config.rateLimitMs,
     config.entityName,
@@ -28,7 +30,7 @@ export async function populateGraph(
   );
   graphWriter.init();
 
-  const memoriesDir = join(config.entityCoreDir, "memories");
+  const memoriesDir = join(packageDir, "memories");
   let totalNodes = 0;
   let totalEdges = 0;
 
@@ -48,7 +50,7 @@ export async function populateGraph(
 
   // Post-extraction consolidation: prune low-value nodes and merge duplicates
   if (totalNodes > 0 || totalEdges > 0) {
-    const consolidator = new GraphConsolidator(config.entityCoreDir);
+    const consolidator = new GraphConsolidator(graphDbPath);
     const { nodesRemoved, edgesRemoved, nodesMerged } = consolidator.consolidate(onProgress);
     onProgress?.(
       `Graph consolidation: removed ${nodesRemoved} nodes, ${edgesRemoved} edges, merged ${nodesMerged} nodes`,

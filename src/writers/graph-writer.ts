@@ -9,7 +9,6 @@
  * to ensure consistent significance standards.
  */
 
-import { join } from "@std/path";
 import { Database } from "@db/sqlite";
 import type { ProgressCallback } from "../types.ts";
 import { LLMClient } from "../llm/mod.ts";
@@ -123,8 +122,8 @@ export class GraphWriter {
   private db: Database | null = null;
   private userName: string;
 
-  constructor(entityCoreDir: string, llm: LLMClient, rateLimitMs: number, _entityName = "me", userName = "the person I talk with") {
-    this.graphDbPath = join(entityCoreDir, "graph.db");
+  constructor(graphDbPath: string, llm: LLMClient, rateLimitMs: number, _entityName = "me", userName = "the person I talk with") {
+    this.graphDbPath = graphDbPath;
     this.llm = llm;
     this.rateLimitMs = rateLimitMs;
     this.userName = userName;

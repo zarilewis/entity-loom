@@ -1,7 +1,7 @@
 /**
  * Entity Loom — Command Handlers
  *
- * Implements the import, resume, analyze, and configure CLI commands.
+ * Implements the import, resume, and configure CLI commands.
  */
 
 import { join } from "@std/path";
@@ -12,7 +12,6 @@ import { askString, askChoice, askConfirm, askMultiline } from "./prompts.ts";
 import { detectPlatform, getRegisteredPlatforms } from "../parsers/mod.ts";
 import { CheckpointManager } from "../dedup/checkpoint.ts";
 import { runPipeline } from "../pipeline/orchestrator.ts";
-import { CorePromptAnalyzer } from "../writers/core-prompt.ts";
 import { LLMClient } from "../llm/mod.ts";
 
 /**
@@ -105,16 +104,14 @@ export async function importCommand(flags: Record<string, string | boolean>): Pr
     );
   }
 
-  // Step 9: Paths
-  const psycherosDir = partial.psycherosDir || join(Deno.cwd(), "..", "Psycheros");
-  const entityCoreDir = partial.entityCoreDir || join(Deno.cwd(), "..", "entity-core", "data");
+  // Step 9: Output directory
+  const outputDir = partial.outputDir || join(Deno.cwd(), ".loom-exports");
 
   // Build config
   const config: PipelineConfig = {
     platform: platform!,
     inputPath,
-    psycherosDir,
-    entityCoreDir,
+    outputDir,
     entityName,
     userName,
     contextNotes,
@@ -166,8 +163,7 @@ export async function importCommand(flags: Record<string, string | boolean>): Pr
   console.log(`  User name:     ${config.userName}${config.userPronouns ? ` (${config.userPronouns})` : ""}`);
   if (config.relationshipContext) console.log(`  Relationship:  ${config.relationshipContext}`);
   console.log(`  Instance:      ${config.instanceId}`);
-  console.log(`  Psycheros dir: ${config.psycherosDir}`);
-  console.log(`  Entity-core:   ${config.entityCoreDir}`);
+  console.log(`  Output:        ${config.outputDir}/${config.entityName}-${config.platform}/`);
   if (config.dryRun) console.log(`  Mode:          DRY RUN (no writes)`);
   if (config.skipMemories) console.log(`  Memories:      SKIPPED`);
   if (config.skipGraph) console.log(`  Graph:         SKIPPED`);
@@ -189,8 +185,8 @@ export async function importCommand(flags: Record<string, string | boolean>): Pr
       "Conversations skipped": result.pass1.conversationsSkipped,
       "Conversations stored": result.pass2.conversationsStored,
       "Messages stored": result.pass2.messagesStored,
-      "Daily memories": result.pass3.dailyMemoriesCreated,
-      "Significant memories": result.pass3.significantMemoriesCreated,
+      "Daily memories": result.pass3a.dailyMemoriesCreated,
+      "Significant memories": result.pass3b.significantMemoriesCreated,
       "Graph nodes": result.pass4.nodesCreated,
       "Graph edges": result.pass4.edgesCreated,
     });
@@ -211,10 +207,33 @@ export async function resume(flags: Record<string, string | boolean>): Promise<v
   const progress = new ProgressReporter("[entity-loom]");
   const partial = buildConfig(flags);
 
-  const psycherosDir = partial.psycherosDir || join(Deno.cwd(), "..", "Psycheros");
-  const instanceId = (partial.instanceId as string) || "unknown";
+  const outputDir = partial.outputDir || join(Deno.cwd(), ".loom-exports");
 
-  const checkpointMgr = new CheckpointManager(psycherosDir, instanceId);
+  // Find package directories with checkpoints
+  let packageDir: string | null = null;
+
+  try {
+    for await (const entry of Deno.readDir(outputDir)) {
+      if (!entry.isDirectory) continue;
+      const candidate = join(outputDir, entry.name, "checkpoint.json");
+      try {
+        await Deno.stat(candidate);
+        packageDir = join(outputDir, entry.name);
+        break;
+      } catch {
+        // no checkpoint in this directory
+      }
+    }
+  } catch {
+    // outputDir doesn't exist yet
+  }
+
+  if (!packageDir) {
+    progress.error("No checkpoint found. Run 'entity-loom import' to start a new import.");
+    Deno.exit(1);
+  }
+
+  const checkpointMgr = new CheckpointManager(packageDir);
   const checkpoint = await checkpointMgr.load();
 
   if (!checkpoint) {
@@ -222,21 +241,23 @@ export async function resume(flags: Record<string, string | boolean>): Promise<v
     Deno.exit(1);
   }
 
-  progress.log(`Resuming import from checkpoint (started ${checkpoint.startedAt})`);
+  progress.log(`Resuming import from: ${packageDir}`);
+  progress.log(`Started ${checkpoint.startedAt}`);
   console.log(`  Platform: ${checkpoint.platform}`);
   console.log(`  Entity: ${checkpoint.entityName}`);
   console.log(`  User: ${checkpoint.userName}`);
-  console.log(`  Pass 1: ${checkpoint.pass1.completed ? "complete" : "incomplete"}`);
-  console.log(`  Pass 2: ${checkpoint.pass2.completed ? "complete" : "incomplete"}`);
-  console.log(`  Pass 3: ${checkpoint.pass3.completed ? "complete" : `incomplete (${checkpoint.pass3.failedDates.length} failed dates)`}`);
-  console.log(`  Pass 4: ${checkpoint.pass4.completed ? "complete" : "incomplete"}`);
+  console.log(`  Pass 1 (Parse):    ${checkpoint.pass1.completed ? "complete" : "incomplete"}`);
+  console.log(`  Pass 2 (Store):    ${checkpoint.pass2.completed ? "complete" : "incomplete"}`);
+  console.log(`  Pass 3a (Daily):   ${checkpoint.pass3a.completed ? "complete" : `incomplete (${checkpoint.pass3a.failedDates.length} failed dates)`}`);
+  console.log(`  Pass 3b (Signif.): ${checkpoint.pass3b.completed ? "complete" : `incomplete (${checkpoint.pass3b.failedConversationIds.length} failed convos)`}`);
+  console.log(`  Pass 4 (Graph):    ${checkpoint.pass4.completed ? "complete" : "incomplete"}`);
+  console.log(`  Pass 5 (Package):  ${checkpoint.pass5.completed ? "complete" : "incomplete"}`);
   console.log("");
 
   const config: PipelineConfig = {
     platform: checkpoint.platform,
     inputPath: checkpoint.inputPath,
-    psycherosDir,
-    entityCoreDir: partial.entityCoreDir || join(Deno.cwd(), "..", "entity-core", "data"),
+    outputDir,
     entityName: checkpoint.entityName,
     userName: checkpoint.userName,
     contextNotes: checkpoint.contextNotes,
@@ -263,10 +284,11 @@ export async function resume(flags: Record<string, string | boolean>): Promise<v
     console.log("\n--- Results ---");
     progress.summary({
       "Conversations parsed": result.pass1.conversationsParsed,
+      "Conversations skipped": result.pass1.conversationsSkipped,
       "Conversations stored": result.pass2.conversationsStored,
       "Messages stored": result.pass2.messagesStored,
-      "Daily memories": result.pass3.dailyMemoriesCreated,
-      "Significant memories": result.pass3.significantMemoriesCreated,
+      "Daily memories": result.pass3a.dailyMemoriesCreated,
+      "Significant memories": result.pass3b.significantMemoriesCreated,
       "Graph nodes": result.pass4.nodesCreated,
       "Graph edges": result.pass4.edgesCreated,
     });
@@ -276,74 +298,6 @@ export async function resume(flags: Record<string, string | boolean>): Promise<v
     progress.error(`Resume failed: ${error instanceof Error ? error.message : String(error)}`);
     Deno.exit(2);
   }
-}
-
-/**
- * Analyze system prompts and generate identity files.
- */
-export async function analyze(flags: Record<string, string | boolean>): Promise<void> {
-  const progress = new ProgressReporter("[entity-loom]");
-  const partial = buildConfig(flags);
-
-  const psycherosDir = partial.psycherosDir || join(Deno.cwd(), "..", "Psycheros");
-  const entityCoreDir = partial.entityCoreDir || join(Deno.cwd(), "..", "entity-core", "data");
-
-  // Find checkpoint to get system prompts from
-  const instanceId = (partial.instanceId as string) || "unknown";
-  const checkpointMgr = new CheckpointManager(psycherosDir, instanceId);
-  const checkpoint = await checkpointMgr.load();
-
-  if (!checkpoint) {
-    progress.error("No checkpoint found. Run 'entity-loom import' first to collect system prompts.");
-    Deno.exit(1);
-  }
-
-  // We need to re-parse to get system prompts (they're not stored in checkpoint)
-  // For now, this requires re-parsing the export file
-  let platform = partial.platform || checkpoint.platform;
-  let inputPath = partial.inputPath || checkpoint.inputPath;
-  let entityName = partial.entityName || checkpoint.entityName;
-  let userName = partial.userName || checkpoint.userName;
-  let contextNotes = partial.contextNotes || checkpoint.contextNotes;
-
-  if (!entityName) entityName = await askString("Entity name?");
-  if (!userName) userName = await askString("Your name?");
-
-  const llmConfig = getLLMConfig();
-  if (!llmConfig.apiKey) {
-    progress.error("LLM_API_KEY not set. Analysis requires an LLM API key.");
-    Deno.exit(1);
-  }
-
-  const llm = new LLMClient({
-    apiKey: llmConfig.apiKey,
-    baseUrl: llmConfig.baseUrl,
-    model: partial.workerModel || llmConfig.model,
-  });
-
-  const analyzer = new CorePromptAnalyzer(entityCoreDir, entityName, userName, contextNotes, llm);
-
-  // Parse the export to collect system prompts
-  const { createParser } = await import("../parsers/mod.ts");
-  const parser = createParser(platform);
-  const conversations = await parser.parse(inputPath);
-
-  // Collect all system prompts
-  const allSystemPrompts: string[] = [];
-  for (const conv of conversations) {
-    allSystemPrompts.push(...conv.systemPrompts);
-  }
-
-  progress.log(`Found ${allSystemPrompts.length} system prompts across ${conversations.length} conversations`);
-
-  const result = await analyzer.analyze(platform, allSystemPrompts);
-  if (result) {
-    progress.log(`Identity analysis written to: ${result}`);
-  } else {
-    progress.log("No system prompts to analyze.");
-  }
-
-  Deno.exit(0);
 }
 
 /**
@@ -383,7 +337,7 @@ export async function configure(_flags: Record<string, string | boolean>): Promi
   }
 
   // Model selection
-  let model = await askString(`Model name`, currentModel);
+  const model = await askString(`Model name`, currentModel);
 
   // Worker model
   let workerModel = await askString(

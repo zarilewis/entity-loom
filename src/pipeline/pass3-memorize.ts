@@ -1,7 +1,7 @@
 /**
- * Entity Loom — Pass 3: Memorize
+ * Entity Loom — Pass 3a: Daily Memories
  *
- * Generates daily and significant memory files from stored conversations.
+ * Generates daily memory files from stored conversations (day-by-day).
  */
 
 import type {
@@ -11,20 +11,22 @@ import type {
 } from "../types.ts";
 import { DBWriter } from "../writers/db-writer.ts";
 import { MemoryWriter } from "../writers/memory-writer.ts";
-import { LLMClient } from "../llm/mod.ts";
+import type { LLMClient } from "../llm/mod.ts";
 
 /**
- * Generate memories for all dates that have stored conversations.
+ * Generate daily memories for all dates that have stored conversations.
  */
-export async function generateMemories(
+export async function generateDailyMemories(
+  dbPath: string,
+  packageDir: string,
   config: PipelineConfig,
   checkpoint: CheckpointState,
   llm: LLMClient,
   onProgress?: ProgressCallback,
-): Promise<{ dailyMemoriesCreated: number; significantMemoriesCreated: number }> {
-  const db = new DBWriter(config.psycherosDir);
+): Promise<{ dailyMemoriesCreated: number }> {
+  const db = new DBWriter(dbPath);
   const memoryWriter = new MemoryWriter(
-    config.entityCoreDir,
+    packageDir,
     config.entityName,
     config.userName,
     config.instanceId,
@@ -59,21 +61,20 @@ export async function generateMemories(
   }
 
   let dailyMemoriesCreated = 0;
-  let significantMemoriesCreated = 0;
 
   // Retry failed dates first
   const datesToProcess = [
-    ...checkpoint.pass3.failedDates.filter((d) => !checkpoint.pass3.processedDates.includes(d)),
-    ...dates.filter((d) => !checkpoint.pass3.processedDates.includes(d)),
+    ...checkpoint.pass3a.failedDates.filter((d) => !checkpoint.pass3a.processedDates.includes(d)),
+    ...dates.filter((d) => !checkpoint.pass3a.processedDates.includes(d)),
   ];
 
-  onProgress?.(`Processing ${datesToProcess.length} dates for memory generation`);
+  onProgress?.(`Processing ${datesToProcess.length} dates for daily memory generation`);
 
   for (const date of datesToProcess) {
     try {
       // Check if daily memory already exists
       if (await memoryWriter.dailyMemoryExists(date)) {
-        checkpoint.pass3.processedDates.push(date);
+        checkpoint.pass3a.processedDates.push(date);
         continue;
       }
 
@@ -108,7 +109,7 @@ export async function generateMemories(
       if (result) {
         const filePath = await memoryWriter.writeDailyMemory(date, result.content);
 
-        // Record in DB for Psycheros tracking
+        // Record in DB for tracking
         db.recordMemorySummary(
           date,
           "daily",
@@ -118,31 +119,21 @@ export async function generateMemories(
 
         dailyMemoriesCreated++;
         onProgress?.(`Created daily memory: ${filePath}`);
-
-        // Extract significant memories from raw chat logs (not from daily memory)
-        const significant = await memoryWriter.extractSignificantMemories(date, groups);
-        if (significant) {
-          const sigPath = await memoryWriter.writeSignificantMemory(date, significant.prose, significant.slug);
-          if (sigPath) {
-            significantMemoriesCreated++;
-            onProgress?.(`Created significant memory: ${sigPath}`);
-          }
-        }
       }
 
-      checkpoint.pass3.processedDates.push(date);
+      checkpoint.pass3a.processedDates.push(date);
       // Remove from failed if it was there
-      checkpoint.pass3.failedDates = checkpoint.pass3.failedDates.filter((d) => d !== date);
+      checkpoint.pass3a.failedDates = checkpoint.pass3a.failedDates.filter((d) => d !== date);
     } catch (error) {
       onProgress?.(
-        `Failed to generate memory for ${date}: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to generate daily memory for ${date}: ${error instanceof Error ? error.message : String(error)}`,
       );
-      checkpoint.pass3.failedDates.push(date);
+      checkpoint.pass3a.failedDates.push(date);
     }
   }
 
   db.close();
-  onProgress?.(`Created ${dailyMemoriesCreated} daily memories, ${significantMemoriesCreated} significant memories`);
+  onProgress?.(`Created ${dailyMemoriesCreated} daily memories`);
 
-  return { dailyMemoriesCreated, significantMemoriesCreated };
+  return { dailyMemoriesCreated };
 }

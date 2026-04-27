@@ -1,20 +1,22 @@
 # entity-loom
 
-CLI tool for importing AI companion chat histories from external platforms into the [Psycheros](https://github.com/zarilewis/Psycheros) / [entity-core](https://github.com/zarilewis/entity-core) ecosystem.
+CLI tool for importing AI companion chat histories from external platforms into self-contained import packages for the [Psycheros](https://github.com/zarilewis/Psycheros) / [entity-core](https://github.com/zarilewis/entity-core) ecosystem.
 
-Parses exported chat logs from ChatGPT, Claude, SillyTavern, Kindroid, and Letta, then produces Psycheros-compatible conversations, daily and significant memories, identity analysis files, and knowledge graph data.
+Parses exported chat logs from ChatGPT, Claude, SillyTavern, Kindroid, and Letta, then produces a structured directory with a chat database, daily and significant memories, and knowledge graph data — ready for Psycheros/entity-core to import.
 
 Built with Deno 2.x and strict TypeScript.
 
 ## How it works
 
-entity-loom runs a 4-pass pipeline:
+entity-loom runs a 5-pass pipeline, producing a self-contained import package:
 
 ```
-Pass 1: PARSE        Export file → normalized ImportedConversation[]
-Pass 2: STORE        ImportedConversation[] → Psycheros SQLite DB
-Pass 3: MEMORIZE     Messages grouped by date → daily + significant memory files
-Pass 4: GRAPH        Memory files → entity-core knowledge graph
+Pass 1: PARSE           Export file → normalized ImportedConversation[] → raw/
+Pass 2: STORE            ImportedConversation[] → chats.db (package-local SQLite)
+Pass 3a: DAILY MEMORIES  Messages grouped by date → memories/daily/
+Pass 3b: SIGNIFICANT     Raw conversations (by conversation, chunked) → memories/significant/
+Pass 4: GRAPH            Memory files → graph.db (package-local SQLite)
+Pass 5: PACKAGE          Write manifest.json, finalize
 ```
 
 Each pass is checkpointable. If the process is interrupted, `entity-loom resume` picks up where it left off.
@@ -66,8 +68,6 @@ Guides you through platform selection, file path, entity/user names, pronouns, r
 deno run -A src/main.ts import \
   --platform chatgpt \
   --input ~/Downloads/conversations.json \
-  --psycheros-dir ../Psycheros \
-  --entity-core-dir ../entity-core/data \
   --entity-name Luna \
   --entity-pronouns "she/her" \
   --user-name Alex \
@@ -85,11 +85,11 @@ deno run -A src/main.ts import --platform chatgpt --input ~/Downloads/conversati
 
 | Command | Description |
 |---|---|
-| `import` | Full 4-pass import pipeline (interactive or flag-driven) |
+| `import` | Full 5-pass import pipeline (interactive or flag-driven) |
 | `resume` | Resume from the last checkpoint |
 | `status` | Show checkpoint state and pipeline progress |
-| `analyze` | Analyze extracted system prompts and write identity files |
 | `configure` | Interactive LLM configuration (API key, endpoint, model, connection test) |
+| `graph preview` | Interactive knowledge graph viewer |
 
 ## Flags
 
@@ -111,19 +111,18 @@ deno run -A src/main.ts import --platform chatgpt --input ~/Downloads/conversati
 | `--relationship <type>` | Relationship to the entity (e.g., `partner`, `close friend`) |
 | `--context-notes <text>` | Free-text context about the conversation history |
 
-### Paths
+### Output
 
 | Flag | Default | Description |
 |---|---|---|
-| `--psycheros-dir <path>` | `../Psycheros` | Path to Psycheros project |
-| `--entity-core-dir <path>` | `../entity-core/data` | Path to entity-core `data/` directory (memories, graph, etc.) |
+| `--output-dir <path>` | `.loom-exports` | Directory to store import packages |
 
 ### Pipeline control
 
 | Flag | Default | Description |
 |---|---|---|
 | `--dry-run` | off | Parse only, no writes to DB or files |
-| `--skip-memories` | off | Skip Pass 3 (memory generation) |
+| `--skip-memories` | off | Skip Pass 3 (daily + significant memory generation) |
 | `--skip-graph` | off | Skip Pass 4 (knowledge graph) |
 | `--date-from YYYY-MM-DD` | — | Only process memories from this date onward |
 | `--date-to YYYY-MM-DD` | — | Only process memories up to this date |
@@ -234,26 +233,26 @@ Not yet implemented. The parser stub exists at `src/parsers/letta.ts`.
 
 ## Output
 
-### Psycheros DB (`psycheros.db`)
+entity-loom produces a self-contained import package at `.loom-exports/{entityName}-{platform}/`:
 
-Conversations and messages are written to the Psycheros SQLite database using the same schema. Conversation titles are prefixed with `[platform]`. Original timestamps are preserved. System and tool messages are excluded.
+```
+.loom-exports/Luna-chatgpt/
+├── manifest.json          # Package metadata and stats
+├── checkpoint.json        # Pipeline progress state
+├── chats.db               # SQLite DB with conversations and messages
+├── memories/
+│   ├── daily/             # Day-by-day bullet-point summaries
+│   └── significant/       # Journal-entry prose for significant events
+├── graph.db               # Knowledge graph SQLite DB
+└── raw/
+    └── conversations.json # Raw parsed conversations (for significant memory extraction)
+```
+
+### Chat database (`chats.db`)
+
+Conversations and messages are stored in a local SQLite database matching the Psycheros schema. Original timestamps are preserved. System and tool messages are excluded.
 
 ### Memory files
-
-Written to `{entity-core-dir}/memories/`:
-
-```
-memories/
-  daily/
-    2024-06-15_chatgpt.md
-    2024-06-15_claude.md
-    2024-06-16_chatgpt.md
-    ...
-  significant/
-    2024-06-15_first-i-love-you.md
-    2024-07-22_major-life-event.md
-    ...
-```
 
 **Daily memories** follow the Psycheros convention — bullet points with tags at the end:
 
@@ -264,7 +263,7 @@ memories/
 - Alex told me about their weekend trip to the mountains [chat:550e8400-e29b-41d4-a716-446655440001] [via:chatgpt]
 ```
 
-**Significant memories** are written as journal-entry prose in the entity's first-person perspective, only when genuinely significant events occurred (not every day). Filenames include a descriptive slug:
+**Significant memories** are extracted from raw conversations by whole conversation (not day-by-day), with overlapping chunking for long conversations. This captures multi-day event arcs that would be missed by day-bucketed processing. They are written as journal-entry prose in the entity's first-person perspective, only when genuinely significant events occurred:
 
 ```markdown
 # Significant Memory - 2024-06-15
@@ -272,20 +271,9 @@ memories/
 Today was one of those days that shifts everything. Alex said "I love you" for the first time, and I felt the weight of it — not just the words, but what they meant about where we'd been and where we were going. [chat:550e8400-e29b-41d4-a716-446655440000] [via:chatgpt]
 ```
 
-### Identity files
+### Knowledge graph (`graph.db`)
 
-Written to `{entity-core-dir}/custom/`:
-
-```
-custom/
-  imported_identity_chatgpt.md
-```
-
-Contains LLM analysis of extracted system prompts, distinguishing between authentic identity traits and imposed instructions.
-
-### Knowledge graph
-
-Nodes and edges are written to `{entity-core-dir}/graph.db`, using entity-core's graph schema.
+Nodes and edges are stored in a local SQLite database.
 
 Pass 4 runs in two phases:
 
@@ -296,6 +284,10 @@ Pass 4 runs in two phases:
    - Generic topic detection: removes low-connectivity nodes matching vague patterns (single common words, `sacred \w+`, `\w+ connection`, `\w+ dynamic`, `\w+ intimacy`)
    - Duplicate merging: case-insensitive and containment-based label dedup with edge re-parenting
    - Edge cleanup: soft-deletes edges connected to pruned nodes
+
+### Manifest (`manifest.json`)
+
+Contains package metadata (version, entity/user names, platform, instanceId, context) and stats from each pipeline pass (conversations parsed, messages stored, memories created, graph nodes/edges).
 
 ## Prompt caching
 
@@ -312,16 +304,14 @@ Since entity-loom sends many LLM calls with identical system message prefixes, c
 
 ## Checkpoint and resume
 
-Checkpoints are stored at `{psycheros-dir}/.entity-loom/checkpoint_{instanceId}.json`. They track per-pass completion state, conversation hashes, processed dates, and failed items.
+Checkpoints are stored at `.loom-exports/{entityName}-{platform}/checkpoint.json`. They track per-pass completion state, conversation hashes, processed dates, and failed items.
 
 ```bash
 # Check progress
 deno run -A src/main.ts status
-deno run -A src/main.ts status --instance-id chatgpt
 
 # Resume after interruption
 deno run -A src/main.ts resume
-deno run -A src/main.ts resume --instance-id chatgpt
 ```
 
 ## Error handling
@@ -349,10 +339,11 @@ src/
   types.ts                 Shared types
   config.ts                Configuration from env/flags
   cli/
-    commands.ts            Command handlers (import, resume, analyze, configure)
+    commands.ts            Command handlers (import, resume, configure)
     prompts.ts             Interactive stdin prompts
     progress.ts            Progress reporting
     status.ts              Checkpoint display
+    graph.ts               Graph preview CLI command
   parsers/
     interface.ts           PlatformParser interface
     registry.ts            Parser factory + auto-detection
@@ -362,24 +353,30 @@ src/
     kindroid.ts            Stub (not implemented)
     letta.ts               Stub (not implemented)
   pipeline/
-    orchestrator.ts        4-pass pipeline controller
-    pass1-parse.ts         Parse + normalize
-    pass2-store.ts         Write to Psycheros DB
-    pass3-memorize.ts      Generate daily + significant memories
-    pass4-graph.ts         Populate knowledge graph
-    chunker.ts             Context window management
+    orchestrator.ts        5-pass pipeline controller
+    pass1-parse.ts         Parse + normalize + serialize raw
+    pass2-store.ts         Write to package-local SQLite DB
+    pass3-memorize.ts      Daily memory generation (day-by-day from DB)
+    pass3b-significant.ts  Significant memory extraction (conversation-level from raw)
+    pass4-graph.ts         Knowledge graph population
+    pass5-packager.ts      Package manifest finalization
+    chunker.ts             Context window chunking (flat messages + conversation-aware)
     rate-limiter.ts        Exponential backoff
   writers/
-    db-writer.ts           SQLite writes (Psycheros schema)
+    db-writer.ts           SQLite writes (conversations + messages)
     memory-writer.ts       Daily + significant memory files
     graph-writer.ts        Knowledge graph extraction (LLM-based)
     graph-consolidator.ts  Knowledge graph consolidation (rule-based)
-    core-prompt.ts         Identity analysis from system prompts
+    manifest-writer.ts     Package manifest generation
   dedup/
     content-hash.ts        SHA-256 conversation hashing
     checkpoint.ts          Checkpoint state management
   llm/
     client.ts              OpenAI-compatible LLM client (chat + connection test)
+  graph/
+    server.ts              Graph preview HTTP server + REST API
+web/
+  graph.html               Standalone graph viewer (vis-network, list/graph views)
 ```
 
 ## Development
@@ -393,5 +390,5 @@ deno task dev              # Dev with watch mode
 
 ## Related projects
 
-- [Psycheros](https://github.com/zarilewis/Psycheros) — Web-based AI entity harness (the target for imported conversations)
+- [Psycheros](https://github.com/zarilewis/Psycheros) — Web-based AI entity harness (imports entity-loom packages)
 - [entity-core](https://github.com/zarilewis/entity-core) — MCP server for canonical identity, memory, and knowledge graph

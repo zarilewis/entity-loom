@@ -5,7 +5,6 @@
  * Matches the exact schema from Psycheros src/db/schema.ts.
  */
 
-import { join } from "@std/path";
 import { Database } from "@db/sqlite";
 import type { ImportedConversation } from "../types.ts";
 
@@ -65,8 +64,8 @@ export class DBWriter {
   private db: Database;
   private dbPath: string;
 
-  constructor(psycherosDir: string) {
-    this.dbPath = join(psycherosDir, "psycheros.db");
+  constructor(dbPath: string) {
+    this.dbPath = dbPath;
     this.db = new Database(this.dbPath);
   }
 

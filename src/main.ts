@@ -7,7 +7,7 @@
 
 import { parseFlags } from "./config.ts";
 
-const COMMANDS = ["import", "resume", "status", "analyze", "configure", "graph"] as const;
+const COMMANDS = ["import", "resume", "status", "configure", "graph"] as const;
 type Command = typeof COMMANDS[number];
 
 function showHelp(): void {
@@ -18,18 +18,16 @@ Usage:
   entity-loom <command> [flags]
 
 Commands:
-  import     Full 4-pass import pipeline
+  import     Full 5-pass import pipeline
   resume     Resume from last checkpoint
   status     Show import state / checkpoint info
-  analyze    Core Prompt analysis only
   configure  Interactive LLM configuration
   graph      Graph preview and editing
 
 Flags:
   --platform <type>          Source platform (chatgpt, claude, sillytavern, kindroid, letta)
   --input <path>             Path to export file or directory
-  --psycheros-dir <path>     Path to Psycheros project (default: ../Psycheros)
-  --entity-core-dir <path>   Path to entity-core data dir (default: ../entity-core/data)
+  --output-dir <path>        Base directory for import packages (default: .loom-exports)
   --entity-name <name>       Entity's name (for memory writing)
   --entity-pronouns <pro>    Entity's pronouns (e.g., she/her)
   --user-name <name>         User's name (for memory writing)
@@ -85,11 +83,6 @@ async function main(): Promise<void> {
     case "status": {
       const { status } = await import("./cli/status.ts");
       await status(flags);
-      break;
-    }
-    case "analyze": {
-      const { analyze } = await import("./cli/commands.ts");
-      await analyze(flags);
       break;
     }
     case "configure": {

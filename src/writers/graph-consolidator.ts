@@ -8,7 +8,6 @@
  * API cost and latency.
  */
 
-import { join } from "@std/path";
 import { Database } from "@db/sqlite";
 import type { ProgressCallback } from "../types.ts";
 
@@ -23,8 +22,8 @@ const VAGUE_PATTERNS = [
 export class GraphConsolidator {
   private graphDbPath: string;
 
-  constructor(entityCoreDir: string) {
-    this.graphDbPath = join(entityCoreDir, "graph.db");
+  constructor(graphDbPath: string) {
+    this.graphDbPath = graphDbPath;
   }
 
   /**

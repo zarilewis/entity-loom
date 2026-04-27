@@ -48,11 +48,8 @@ export function buildConfig(flags: Record<string, string | boolean>): Partial<Pi
       ? flags.platform as PlatformType
       : undefined,
     inputPath: typeof flags.input === "string" ? flags.input : undefined,
-    psycherosDir: typeof flags["psycheros-dir"] === "string"
-      ? flags["psycheros-dir"]
-      : undefined,
-    entityCoreDir: typeof flags["entity-core-dir"] === "string"
-      ? flags["entity-core-dir"]
+    outputDir: typeof flags["output-dir"] === "string"
+      ? flags["output-dir"]
       : undefined,
     entityName: typeof flags["entity-name"] === "string"
       ? flags["entity-name"]

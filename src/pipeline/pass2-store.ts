@@ -1,22 +1,26 @@
 /**
  * Entity Loom — Pass 2: Store
  *
- * Writes parsed conversations and messages to the Psycheros SQLite database.
+ * Writes parsed conversations and messages to the package-local SQLite database.
  */
 
+import { dirname } from "@std/path";
 import type { ImportedConversation, CheckpointState, ProgressCallback } from "../types.ts";
 import { DBWriter } from "../writers/db-writer.ts";
 
 /**
- * Store conversations in the Psycheros database.
+ * Store conversations in the package database.
  */
 export async function storeConversations(
   conversations: ImportedConversation[],
-  psycherosDir: string,
+  dbPath: string,
   checkpoint: CheckpointState,
   onProgress?: ProgressCallback,
 ): Promise<{ conversationsStored: number; messagesStored: number }> {
-  const db = new DBWriter(psycherosDir);
+  // Ensure parent directory exists
+  await Deno.mkdir(dirname(dbPath), { recursive: true });
+
+  const db = new DBWriter(dbPath);
   db.init();
 
   const existingIds = db.getExistingConversationIds();

@@ -91,7 +91,7 @@ interface MessageGroup {
 }
 
 export class MemoryWriter {
-  private entityCoreDir: string;
+  private outputDir: string;
   private entityName: string;
   private userName: string;
   private entityPronouns: string;
@@ -104,7 +104,7 @@ export class MemoryWriter {
   private maxContextTokens: number;
 
   constructor(
-    entityCoreDir: string,
+    outputDir: string,
     entityName: string,
     userName: string,
     instanceId: string,
@@ -116,7 +116,7 @@ export class MemoryWriter {
     userPronouns?: string,
     relationshipContext?: string,
   ) {
-    this.entityCoreDir = entityCoreDir;
+    this.outputDir = outputDir;
     this.entityName = entityName;
     this.userName = userName;
     this.instanceId = instanceId;
@@ -277,7 +277,7 @@ export class MemoryWriter {
    * Write a daily memory file to disk.
    */
   async writeDailyMemory(date: string, content: string): Promise<string> {
-    const dirPath = join(this.entityCoreDir, "memories", "daily");
+    const dirPath = join(this.outputDir, "memories", "daily");
     await Deno.mkdir(dirPath, { recursive: true });
 
     const fileName = `${date}_${this.instanceId}.md`;
@@ -297,7 +297,7 @@ export class MemoryWriter {
   ): Promise<string | null> {
     if (!prose.trim()) return null;
 
-    const dirPath = join(this.entityCoreDir, "memories", "significant");
+    const dirPath = join(this.outputDir, "memories", "significant");
     await Deno.mkdir(dirPath, { recursive: true });
 
     // Slug-based filename matching entity-core convention
@@ -315,7 +315,7 @@ export class MemoryWriter {
   /** Check if a daily memory file already exists */
   async dailyMemoryExists(date: string): Promise<boolean> {
     const filePath = join(
-      this.entityCoreDir, "memories", "daily",
+      this.outputDir, "memories", "daily",
       `${date}_${this.instanceId}.md`,
     );
     try {
@@ -324,6 +324,11 @@ export class MemoryWriter {
     } catch {
       return false;
     }
+  }
+
+  /** Get the output directory */
+  getOutputDir(): string {
+    return this.outputDir;
   }
 
   /** Get the memory file path for a daily memory (for DB tracking) */

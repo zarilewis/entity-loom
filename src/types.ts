@@ -49,8 +49,8 @@ export interface ImportedConversation {
 export interface PipelineConfig {
   platform: PlatformType;
   inputPath: string;
-  psycherosDir: string;
-  entityCoreDir: string;
+  /** Base directory for import packages (e.g., .loom-exports/) */
+  outputDir: string;
   entityName: string;
   userName: string;
   contextNotes: string;
@@ -79,8 +79,10 @@ export interface PipelineConfig {
 export interface PipelineResult {
   pass1: { conversationsParsed: number; conversationsSkipped: number };
   pass2: { conversationsStored: number; messagesStored: number };
-  pass3: { dailyMemoriesCreated: number; significantMemoriesCreated: number };
+  pass3a: { dailyMemoriesCreated: number };
+  pass3b: { significantMemoriesCreated: number; conversationsProcessed: number };
   pass4: { nodesCreated: number; edgesCreated: number };
+  pass5: { manifestWritten: boolean };
 }
 
 /** Checkpoint state — persisted between runs for resume support */
@@ -102,14 +104,22 @@ export interface CheckpointState {
     completed: boolean;
     storedIds: string[];
   };
-  pass3: {
+  pass3a: {
     completed: boolean;
     processedDates: string[];
     failedDates: string[];
   };
+  pass3b: {
+    completed: boolean;
+    processedConversationIds: string[];
+    failedConversationIds: string[];
+  };
   pass4: {
     completed: boolean;
     processedMemories: string[];
+  };
+  pass5: {
+    completed: boolean;
   };
 }
 
@@ -121,3 +131,30 @@ export interface LLMMessage {
 
 /** Progress callback for pipeline passes */
 export type ProgressCallback = (message: string, current?: number, total?: number) => void;
+
+/** Package manifest — written at the end of the pipeline */
+export interface ManifestData {
+  version: number;
+  entityName: string;
+  userName: string;
+  platform: PlatformType;
+  instanceId: string;
+  inputPath: string;
+  createdAt: string;
+  completedAt?: string;
+  entityPronouns?: string;
+  userPronouns?: string;
+  relationshipContext?: string;
+  contextNotes: string;
+  dateFrom?: string;
+  dateTo?: string;
+  stats: {
+    conversationsParsed: number;
+    conversationsStored: number;
+    messagesStored: number;
+    dailyMemoriesCreated: number;
+    significantMemoriesCreated: number;
+    graphNodes: number;
+    graphEdges: number;
+  };
+}

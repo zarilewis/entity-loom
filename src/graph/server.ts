@@ -38,9 +38,7 @@ interface GraphEdge {
   version: number;
 }
 
-export async function startGraphServer(entityCoreDir: string, port: number): Promise<void> {
-  const graphDbPath = join(entityCoreDir, "graph.db");
-
+export async function startGraphServer(graphDbPath: string, port: number): Promise<void> {
   // Verify graph.db exists
   try {
     await Deno.stat(graphDbPath);
