@@ -349,10 +349,7 @@ export class MemoryWriter {
       for (const msg of conv.messages) {
         // Use actual names instead of "User"/"Assistant" to prevent identity confusion
         const speaker = msg.role === "user" ? this.userName : this.entityName;
-        // Truncate long messages for prompt efficiency
-        const content = msg.content.length > 500
-          ? msg.content.substring(0, 500) + "..."
-          : msg.content;
+        const content = msg.content;
         parts.push(`**${speaker}**: ${content}`);
       }
     }
