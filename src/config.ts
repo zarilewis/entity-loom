@@ -72,6 +72,9 @@ export function buildConfig(flags: Record<string, string | boolean>): Partial<Pi
     rateLimitMs: typeof flags["rate-limit-ms"] === "string"
       ? parseInt(flags["rate-limit-ms"])
       : 2000,
+    requestTimeoutMs: typeof flags["request-timeout-ms"] === "string"
+      ? parseInt(flags["request-timeout-ms"])
+      : 120000,
     dryRun: flags["dry-run"] === true,
     skipGraph: flags["skip-graph"] === true,
     skipMemories: flags["skip-memories"] === true,

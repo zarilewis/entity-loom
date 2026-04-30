@@ -13,6 +13,8 @@ export interface LLMClientConfig {
   baseUrl: string;
   model: string;
   maxRetries?: number;
+  /** Per-request timeout in milliseconds. Default: 120000 (2 minutes). */
+  requestTimeoutMs?: number;
   /** Enable prompt caching headers. Default: true.
    *  Most providers (OpenRouter, Anthropic, OpenAI) support caching on
    *  repeated prompt prefixes. Since entity-loom sends many calls with
@@ -63,6 +65,7 @@ export class LLMClient {
   constructor(config: LLMClientConfig) {
     this.config = {
       maxRetries: 3,
+      requestTimeoutMs: 120000,
       enableCaching: true,
       ...config,
     };
@@ -90,7 +93,7 @@ export class LLMClient {
     const controller = options?.signal
       ? null
       : new AbortController();
-    const timeout = setTimeout(() => controller?.abort(), 120000);
+    const timeout = setTimeout(() => controller?.abort(), this.config.requestTimeoutMs);
 
     for (let attempt = 0; attempt < this.config.maxRetries; attempt++) {
       try {

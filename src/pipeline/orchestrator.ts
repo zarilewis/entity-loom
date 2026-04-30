@@ -126,6 +126,7 @@ export async function runPipeline(
       apiKey: llmConfig.apiKey,
       baseUrl: llmConfig.baseUrl,
       model: config.workerModel || llmConfig.model,
+      requestTimeoutMs: config.requestTimeoutMs,
     });
     const dbPath = join(packageDir, "chats.db");
     const pass3aResult = await generateDailyMemories(dbPath, packageDir, config, checkpoint, llm, onProgress);
@@ -149,6 +150,7 @@ export async function runPipeline(
       apiKey: llmConfig.apiKey,
       baseUrl: llmConfig.baseUrl,
       model: config.workerModel || llmConfig.model,
+      requestTimeoutMs: config.requestTimeoutMs,
     });
     const pass3bResult = await generateSignificantMemories(packageDir, config, checkpoint, llm, onProgress);
     result.pass3b = pass3bResult;
@@ -171,6 +173,7 @@ export async function runPipeline(
       apiKey: llmConfig.apiKey,
       baseUrl: llmConfig.baseUrl,
       model: config.workerModel || llmConfig.model,
+      requestTimeoutMs: config.requestTimeoutMs,
     });
     const pass4Result = await populateGraph(packageDir, config, checkpoint, llm, onProgress);
     result.pass4 = pass4Result;

@@ -58,6 +58,8 @@ export interface PipelineConfig {
   workerModel: string;
   maxContextTokens: number;
   rateLimitMs: number;
+  /** Per-request timeout in milliseconds */
+  requestTimeoutMs: number;
   dryRun: boolean;
   skipGraph: boolean;
   skipMemories: boolean;

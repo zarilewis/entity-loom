@@ -38,6 +38,7 @@ Flags:
   --worker-model <model>     Model for memory generation
   --max-context-tokens <n>   Worker context limit (default: 90000)
   --rate-limit-ms <n>        Delay between LLM calls (default: 2000)
+  --request-timeout-ms <n>   Per-request LLM timeout in ms (default: 120000)
   --api-key <key>            Override LLM API key for this run
   --base-url <url>           Override LLM API base URL for this run
   --model <model>            Override LLM model for this run

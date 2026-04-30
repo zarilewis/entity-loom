@@ -138,6 +138,7 @@ deno run -A src/main.ts import --platform chatgpt --input ~/Downloads/conversati
 | `--worker-model <model>` | `WORKER_MODEL` env var | Model for memory generation |
 | `--max-context-tokens <n>` | `90000` | Worker context window limit |
 | `--rate-limit-ms <n>` | `2000` | Delay between LLM calls |
+| `--request-timeout-ms <n>` | `120000` | Per-request LLM timeout (increase for slow providers) |
 
 ### Identity and metadata
 
