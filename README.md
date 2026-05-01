@@ -206,9 +206,10 @@ Message IDs from the export are preserved as-is in the database.
 ### ChatGPT
 
 - **Format**: Single JSON file from data export (Settings → Data controls → Export)
-- **Structure**: Keys are conversation UUIDs; each has a `mapping` tree and `current_node`
+- **Structure**: Conversations have a `mapping` tree and `current_node`. The parser handles both object format (`Record<string, Conversation>`, keyed by UUID) and array format (`Conversation[]`, newer exports).
 - **System prompts**: Custom instructions are extracted (not stored as messages)
 - **Images**: Replaced with `[image was here]`
+- **Corrupt timestamps**: Clamped to 2020–2030 range to handle broken values in exports
 
 ### Claude
 

@@ -3,8 +3,14 @@
  *
  * Parses ChatGPT data exports (conversations.json).
  *
- * ChatGPT exports are a single JSON file where each key is a conversation UUID.
- * The `mapping` field contains a tree structure supporting branching (regeneration).
+ * ChatGPT exports come in two formats:
+ * - **Object format** (legacy): `Record<string, ChatGPTConversation>` where each
+ *   key is a conversation UUID.
+ * - **Array format** (newer): `ChatGPTConversation[]` — a flat array of conversation
+ *   objects, each containing its own `id` field.
+ *
+ * Both formats contain the same per-conversation structure: a `mapping` field with
+ * a tree supporting branching (regeneration), and a `current_node` pointer.
  * We follow `current_node` to get the canonical conversation thread.
  */
 
@@ -86,12 +92,19 @@ export class ChatGPTParser implements PlatformParser {
 
   async parse(filePath: string): Promise<ImportedConversation[]> {
     const raw = await Deno.readTextFile(filePath);
-    const data = JSON.parse(raw) as Record<string, ChatGPTConversation>;
+    const parsed = JSON.parse(raw);
+
+    // ChatGPT exports come in two formats:
+    //   - Object (legacy): { "uuid": { ... }, ... }
+    //   - Array (newer): [ { ... }, { ... }, ... ]
+    const entries: Array<[string, ChatGPTConversation]> = Array.isArray(parsed)
+      ? parsed.map((conv: ChatGPTConversation) => [conv.id, conv] as [string, ChatGPTConversation])
+      : Object.entries(parsed as Record<string, ChatGPTConversation>);
 
     const conversations: ImportedConversation[] = [];
     const errors: string[] = [];
 
-    for (const [convId, conv] of Object.entries(data)) {
+    for (const [convId, conv] of entries) {
       try {
         const imported = this.parseConversation(convId, conv);
         if (imported.messages.length > 0) {
@@ -107,6 +120,16 @@ export class ChatGPTParser implements PlatformParser {
     }
 
     return conversations;
+  }
+
+  /**
+   * Clamp a Unix timestamp to a reasonable range (2020–2030).
+   * ChatGPT exports can contain corrupt timestamps (e.g., year 57374).
+   */
+  private clampTimestamp(unixTs: number): number {
+    const MIN = 1577836800; // 2020-01-01 UTC
+    const MAX = 1893456000; // 2030-01-01 UTC
+    return Math.max(MIN, Math.min(MAX, unixTs));
   }
 
   private parseConversation(convId: string, conv: ChatGPTConversation): ImportedConversation {
@@ -148,7 +171,7 @@ export class ChatGPTParser implements PlatformParser {
         id: msg.id,
         role,
         content,
-        createdAt: new Date(msg.create_time * 1000),
+        createdAt: new Date(this.clampTimestamp(msg.create_time) * 1000),
         model: msg.metadata?.model_slug,
       });
     }
@@ -156,8 +179,8 @@ export class ChatGPTParser implements PlatformParser {
     return {
       id: conv.id || convId,
       title: conv.title ? `[chatgpt] ${conv.title}` : "[chatgpt]Untitled",
-      createdAt: new Date(conv.create_time * 1000),
-      updatedAt: new Date(conv.update_time * 1000),
+      createdAt: new Date(this.clampTimestamp(conv.create_time) * 1000),
+      updatedAt: new Date(this.clampTimestamp(conv.update_time) * 1000),
       messages,
       platform: "chatgpt",
       systemPrompts,
