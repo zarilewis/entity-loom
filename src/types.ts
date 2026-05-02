@@ -275,4 +275,5 @@ export interface WizardState {
   hasPackage: boolean;
   packageDir: string | null;
   stageStatuses: Record<StageName, StageStatus>;
+  finalized?: boolean;
 }

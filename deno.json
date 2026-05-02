@@ -14,7 +14,8 @@
     "@std/async": "jsr:@std/async@^1",
     "@std/dotenv": "jsr:@std/dotenv@^0.225",
     "@std/fs": "jsr:@std/fs@^1",
-    "@db/sqlite": "jsr:@db/sqlite@^0.12"
+    "@db/sqlite": "jsr:@db/sqlite@^0.12",
+    "fflate": "npm:fflate@^0.8"
   },
   "compilerOptions": {
     "strict": true,

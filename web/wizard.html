@@ -1062,6 +1062,11 @@
         <div class="wiz-actions" id="significant-start-actions">
           <button class="btn btn--primary btn--block" onclick="startStage('significant')">Start Extraction</button>
         </div>
+        <div class="wiz-actions" id="significant-complete-actions" style="display:none">
+          <div style="color:var(--success);font-weight:var(--font-weight-medium);margin-bottom:var(--sp-2)">&#x2713; Extraction complete</div>
+          <button class="btn btn--primary btn--block" onclick="goToStage('daily')">Next: Daily Memories</button>
+          <button class="btn btn--ghost btn--sm" style="margin-top:var(--sp-1)" onclick="startStage('significant')">Re-run</button>
+        </div>
 
         <div class="wiz-memory-list" id="significant-memories"></div>
       </div>
@@ -1113,6 +1118,11 @@
         <div class="wiz-actions" id="daily-start-actions">
           <button class="btn btn--primary btn--block" onclick="startStage('daily')">Start Generation</button>
         </div>
+        <div class="wiz-actions" id="daily-complete-actions" style="display:none">
+          <div style="color:var(--success);font-weight:var(--font-weight-medium);margin-bottom:var(--sp-2)">&#x2713; Generation complete</div>
+          <button class="btn btn--primary btn--block" onclick="goToStage('graph')">Next: Knowledge Graph</button>
+          <button class="btn btn--ghost btn--sm" style="margin-top:var(--sp-1)" onclick="startStage('daily')">Re-run</button>
+        </div>
 
         <div class="wiz-memory-list" id="daily-memories"></div>
       </div>
@@ -1149,6 +1159,11 @@
         <div class="wiz-actions" id="graph-start-actions">
           <button class="btn btn--primary btn--block" onclick="startStage('graph')">Start Graph Population</button>
         </div>
+        <div class="wiz-actions" id="graph-complete-actions" style="display:none">
+          <div style="color:var(--success);font-weight:var(--font-weight-medium);margin-bottom:var(--sp-2)">&#x2713; Graph population complete</div>
+          <button class="btn btn--primary btn--block" onclick="finalizePackage()">Finalize Package</button>
+          <button class="btn btn--ghost btn--sm" style="margin-top:var(--sp-1)" onclick="startStage('graph')">Re-run</button>
+        </div>
 
         <div class="wiz-actions" id="graph-viewer-btn" style="display:none">
           <a href="/graph" class="btn btn--ghost btn--block">Open Graph Viewer</a>
@@ -1157,6 +1172,11 @@
         <div class="wiz-actions" id="finalize-section" style="display:none;margin-top:var(--sp-4)">
           <div style="font-size:var(--font-size-sm);color:var(--fg-muted);margin-bottom:var(--sp-2)">All stages complete. Finalize strips the platform column from chats.db to make it Psycheros-compatible.</div>
           <button class="btn btn--success btn--block" onclick="finalizePackage()">Finalize Package</button>
+        </div>
+
+        <div class="wiz-actions" id="download-section" style="display:none;margin-top:var(--sp-4)">
+          <div style="color:var(--success);font-weight:var(--font-weight-medium);margin-bottom:var(--sp-2)">&#x2713; Package finalized</div>
+          <a href="/api/download" class="btn btn--primary btn--block">Download ZIP</a>
         </div>
       </div>
 
@@ -1257,8 +1277,10 @@
           updateStatusBadges();
           // Show completion indicator on current stage
           const startActions = document.getElementById(`${stage}-start-actions`);
+          const completeActions = document.getElementById(`${stage}-complete-actions`);
           const progressSection = document.getElementById(`${stage}-progress-section`);
-          if (startActions) startActions.style.display = 'flex';
+          if (startActions) startActions.style.display = 'none';
+          if (completeActions) completeActions.style.display = 'flex';
           if (progressSection) {
             const pctEl = document.getElementById(`${stage}-pct`);
             const fillEl = document.getElementById(`${stage}-fill`);
@@ -1268,7 +1290,6 @@
         }
         if (stage === 'graph') {
           document.getElementById('graph-viewer-btn').style.display = 'flex';
-          document.getElementById('finalize-section').style.display = 'flex';
         }
         return;
       }
@@ -1401,11 +1422,17 @@
           el.textContent = 'Pending';
         }
       }
-      // Show graph viewer + finalize if graph is completed
+      // Show graph viewer + finalize/download if graph is completed
       const graphStatus = statuses['graph'];
       if (graphStatus === 'completed') {
         document.getElementById('graph-viewer-btn').style.display = 'flex';
-        document.getElementById('finalize-section').style.display = 'flex';
+        if (wizardState.finalized) {
+          document.getElementById('finalize-section').style.display = 'none';
+          document.getElementById('download-section').style.display = 'flex';
+        } else {
+          document.getElementById('finalize-section').style.display = 'flex';
+          document.getElementById('download-section').style.display = 'none';
+        }
       }
     }
 
@@ -1773,6 +1800,8 @@
         if (res.error) { showToast(res.error); return; }
         if (res.started) {
           document.getElementById(`${stage}-start-actions`).style.display = 'none';
+          const completeActions = document.getElementById(`${stage}-complete-actions`);
+          if (completeActions) completeActions.style.display = 'none';
           document.getElementById(`${stage}-progress-section`).style.display = 'block';
           await loadState();
         }
@@ -1787,6 +1816,8 @@
         if (res.aborted) {
           showToast(`${STAGE_LABELS[stage]} aborted`);
           document.getElementById(`${stage}-start-actions`).style.display = 'flex';
+          const completeActions = document.getElementById(`${stage}-complete-actions`);
+          if (completeActions) completeActions.style.display = 'none';
           document.getElementById(`${stage}-progress-section`).style.display = 'none';
           await loadState();
         }
@@ -1802,6 +1833,8 @@
         if (res.error) { showToast(res.error); return; }
         showToast('Package finalized! chats.db is now Psycheros-compatible.');
         document.getElementById('finalize-section').style.display = 'none';
+        document.getElementById('graph-complete-actions').style.display = 'none';
+        document.getElementById('download-section').style.display = 'flex';
       } catch (e) {
         showToast('Finalize failed: ' + e.message);
       }
@@ -1819,6 +1852,8 @@
       if (pct >= 100) {
         fillEl.classList.add('wiz-progress-fill--complete');
         document.getElementById(`${stage}-start-actions`).style.display = 'none';
+        const completeActions = document.getElementById(`${stage}-complete-actions`);
+        if (completeActions) completeActions.style.display = 'none';
       }
     }
 

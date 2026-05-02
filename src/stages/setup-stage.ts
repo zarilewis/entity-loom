@@ -25,6 +25,7 @@ const OUTPUT_DIR = join(Deno.cwd(), ".loom-exports");
 let activePackageDir: string | null = null;
 let activeConfig: WizardConfig | null = null;
 let activeCheckpoint: CheckpointStateV2 | null = null;
+let finalized = false;
 
 /** Get active package directory */
 export function getActivePackageDir(): string | null {
@@ -51,6 +52,16 @@ export function setActiveConfig(config: WizardConfig): void {
   activeConfig = config;
 }
 
+/** Get finalized state */
+export function isFinalized(): boolean {
+  return finalized;
+}
+
+/** Set finalized state */
+export function setFinalized(v: boolean): void {
+  finalized = v;
+}
+
 export function resetActivePackage(dir: string): void {
   if (activePackageDir === dir) {
     activePackageDir = null;
@@ -69,6 +80,7 @@ export function buildWizardState(): WizardState {
     hasPackage: activePackageDir !== null,
     packageDir: activePackageDir,
     stageStatuses,
+    finalized,
   };
 }
 

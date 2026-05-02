@@ -5,15 +5,16 @@
  * Migrates graph viewer endpoints from graph/server.ts.
  */
 
-import { join } from "@std/path";
+import { join, basename } from "@std/path";
 import type { Handler } from "../server/server.ts";
 import type { CheckpointState } from "../types.ts";
 import { Database } from "@db/sqlite";
+import { zipSync } from "fflate";
 import { GraphWriter } from "../writers/graph-writer.ts";
 import { GraphConsolidator } from "../writers/graph-consolidator.ts";
 import { SignaledLLMClient } from "./signaled-llm.ts";
 import { CheckpointManager } from "../dedup/checkpoint.ts";
-import { getActivePackageDir, getActiveConfig, getActiveCheckpoint, setActiveCheckpoint } from "./setup-stage.ts";
+import { getActivePackageDir, getActiveConfig, getActiveCheckpoint, setActiveCheckpoint, setFinalized } from "./setup-stage.ts";
 import { acquireStageLock, releaseStageLock, abortRunningStage, getRunningStage } from "../server/stage-lock.ts";
 import { sse } from "../server/sse.ts";
 import { log } from "../server/logger.ts";
@@ -502,6 +503,7 @@ export function graphRoutes(): Array<{ method: string; pattern: string | RegExp;
           db.init();
           db.stripPlatformColumn();
           db.close();
+          setFinalized(true);
           log("info", "Finalized: stripped platform column from chats.db");
           sse.broadcast({ type: "log", data: { level: "info", message: "Package finalized — chats.db is now Psycheros-compatible" }, timestamp: new Date().toISOString() });
           return json({ success: true, message: "Platform column stripped. chats.db is now Psycheros-compatible." });
@@ -512,5 +514,55 @@ export function graphRoutes(): Array<{ method: string; pattern: string | RegExp;
         }
       },
     },
+
+    // GET /api/download — stream package as zip file
+    {
+      method: "GET",
+      pattern: "/api/download",
+      handler: async () => {
+        const packageDir = getActivePackageDir();
+        if (!packageDir) return json({ error: "No active package" }, 400);
+
+        const config = getActiveConfig();
+        const entityName = config?.entityName || basename(packageDir);
+        const prefix = `${entityName}-import/`;
+
+        try {
+          const files = await collectFiles(packageDir, prefix);
+          const zipped = zipSync(files);
+          return new Response(ReadableStream.from([new Uint8Array(zipped)]), {
+            headers: {
+              "Content-Type": "application/octet-stream",
+              "Content-Disposition": `attachment; filename="${entityName}-import.zip"`,
+            },
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          log("error", `Download failed: ${message}`);
+          return json({ error: message }, 500);
+        }
+      },
+    },
   ];
+}
+
+/** Collect all files in a directory recursively into a flat map of {zipPath: data} */
+async function collectFiles(dirPath: string, prefix: string): Promise<Record<string, Uint8Array>> {
+  const files: Record<string, Uint8Array> = {};
+
+  async function walk(currentDir: string, currentPrefix: string): Promise<void> {
+    for await (const entry of Deno.readDir(currentDir)) {
+      const fullPath = join(currentDir, entry.name);
+      const zippedPath = currentPrefix + entry.name;
+
+      if (entry.isDirectory) {
+        await walk(fullPath, zippedPath + "/");
+      } else if (entry.isFile) {
+        files[zippedPath] = await Deno.readFile(fullPath);
+      }
+    }
+  }
+
+  await walk(dirPath, prefix);
+  return files;
 }
