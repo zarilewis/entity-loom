@@ -53,6 +53,7 @@ deno test -A tests/    # Run tests
 | `src/parsers/claude.ts` | Claude JSONL parser |
 | `src/parsers/sillytavern.ts` | SillyTavern JSONL parser |
 | `src/parsers/letta.ts` | Letta agent chat log JSON parser (reasoning + system prompt extraction) |
+| `src/parsers/kindroid.ts` | Kindroid/KinLog JSON parser (most-frequent-sender role detection, no timestamps) |
 | `src/pipeline/chunker.ts` | Context window chunking (with platform passthrough) |
 | `src/writers/db-writer.ts` | SQLite writes (conversations + messages + reasoning + platform tracking) |
 | `src/writers/memory-writer.ts` | Daily + significant memory files (per-platform [via:] tags) |
