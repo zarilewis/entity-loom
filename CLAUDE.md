@@ -52,6 +52,7 @@ deno test -A tests/    # Run tests
 | `src/parsers/chatgpt.ts` | ChatGPT JSON parser |
 | `src/parsers/claude.ts` | Claude JSONL parser |
 | `src/parsers/sillytavern.ts` | SillyTavern JSONL parser |
+| `src/parsers/letta.ts` | Letta agent chat log JSON parser (reasoning + system prompt extraction) |
 | `src/pipeline/chunker.ts` | Context window chunking (with platform passthrough) |
 | `src/writers/db-writer.ts` | SQLite writes (conversations + messages + reasoning + platform tracking) |
 | `src/writers/memory-writer.ts` | Daily + significant memory files (per-platform [via:] tags) |
