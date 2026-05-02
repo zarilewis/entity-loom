@@ -511,6 +511,20 @@
       font-size: var(--font-size-xs);
       font-family: var(--font-mono);
     }
+    .wiz-upload-queue-select {
+      padding: 2px 4px;
+      background: var(--accent-subtle);
+      color: var(--accent);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-size: var(--font-size-xs);
+      font-family: var(--font-mono);
+      cursor: pointer;
+    }
+    .wiz-upload-queue-select:focus {
+      outline: 1px solid var(--accent);
+      border-color: var(--accent);
+    }
     .wiz-upload-queue-size {
       color: var(--fg-muted);
       font-size: var(--font-size-xs);
@@ -907,7 +921,7 @@
 
         <!-- Resume -->
         <div class="wiz-resume" id="resume-section" style="display:none">
-          <div class="wiz-section-title">Resume Existing Package</div>
+          <div class="wiz-section-title">Existing Packages</div>
           <div class="wiz-resume-list" id="resume-list"></div>
         </div>
 
@@ -984,24 +998,10 @@
 
         <div class="wiz-section">
           <div class="wiz-section-title">Upload</div>
-          <div class="wiz-field">
-            <label>Platform for upload</label>
-            <div style="display:flex;gap:var(--sp-3);align-items:center">
-              <select id="platform-select" class="wiz-select">
-                <option value="chatgpt">ChatGPT</option>
-                <option value="claude">Claude</option>
-                <option value="sillytavern">SillyTavern</option>
-                <option value="kindroid">Kindroid</option>
-                <option value="letta">Letta</option>
-              </select>
-              <button class="btn btn--ghost" onclick="detectPlatform()" title="Auto-detect platform from the last queued file">Auto-Detect</button>
-              <span id="detect-result" style="font-size:var(--font-size-sm);color:var(--fg-muted)"></span>
-            </div>
-          </div>
           <div class="wiz-upload" id="upload-zone" onclick="document.getElementById('file-input').click()">
             <div class="wiz-upload-icon">&#x21E5;</div>
             <div class="wiz-upload-text"><strong>Click to upload</strong> or drag a file here</div>
-            <div class="wiz-upload-hint" id="upload-hint">Platform: <span id="upload-hint-platform">chatgpt</span></div>
+            <div class="wiz-upload-hint">Platform is auto-detected. Change it in the queue below if needed.</div>
           </div>
           <input type="file" id="file-input" style="display:none" onchange="handleUpload(this.files[0])">
         </div>
@@ -1178,7 +1178,6 @@
 
     let currentStage = 'setup';
     let wizardState = null;
-    let selectedPlatform = 'chatgpt';
     let dailyWindow = 'all';
     let logOpen = false;
     let editingMemory = null;
@@ -1194,10 +1193,6 @@
       connectSSE();
       await loadState();
       await loadUploadQueue();
-      // Sync platform select with selectedPlatform
-      const sel = document.getElementById('platform-select');
-      if (sel) { sel.value = selectedPlatform; sel.onchange = () => { selectedPlatform = sel.value; updateUploadHint(); }; }
-      updateUploadHint();
     }
 
     // ─── SSE ─────────────────────────────────────────────────────────────────
@@ -1318,7 +1313,10 @@
             list.innerHTML = data.packages.map(p =>
               `<div class="wiz-resume-item">
                 <span class="wiz-resume-name">${esc(p.name)}</span>
-                <button class="btn btn--sm btn--ghost" onclick="resumePackage('${esc(p.dir)}')">Resume</button>
+                <div style="display:flex;gap:var(--sp-2)">
+                  <button class="btn btn--sm btn--ghost" onclick="resumePackage('${esc(p.dir)}')">Resume</button>
+                  <button class="btn btn--sm btn--danger" onclick="purgePackage('${esc(p.dir)}', '${esc(p.name)}')">Purge</button>
+                </div>
               </div>`
             ).join('');
             section.style.display = 'block';
@@ -1468,6 +1466,38 @@
       }
     }
 
+    async function purgePackage(dir, name) {
+      if (!confirm(`Delete "${name}" and all its data? This cannot be undone.`)) return;
+      if (!confirm(`Really delete "${name}"? All chat history, memories, and the knowledge graph will be permanently removed.`)) return;
+      try {
+        const res = await api('DELETE', '/api/setup/package', { packageDir: dir });
+        if (res.error) { showToast(res.error); return; }
+        showToast(`Purged: ${name}`);
+        await loadState();
+        // Reload the package list
+        const pkgRes = await fetch('/api/setup/packages');
+        const data = await pkgRes.json();
+        const list = document.getElementById('resume-list');
+        const section = document.getElementById('resume-section');
+        if (data.packages && data.packages.length > 0 && list && section) {
+          list.innerHTML = data.packages.map(p =>
+            `<div class="wiz-resume-item">
+              <span class="wiz-resume-name">${esc(p.name)}</span>
+              <div style="display:flex;gap:var(--sp-2)">
+                <button class="btn btn--sm btn--ghost" onclick="resumePackage('${esc(p.dir)}')">Resume</button>
+                <button class="btn btn--sm btn--danger" onclick="purgePackage('${esc(p.dir)}', '${esc(p.name)}')">Purge</button>
+              </div>
+            </div>`
+          ).join('');
+        } else if (list && section) {
+          list.innerHTML = '';
+          section.style.display = 'none';
+        }
+      } catch (e) {
+        showToast('Purge failed: ' + e.message);
+      }
+    }
+
     async function testLLM() {
       const btn = document.getElementById('btn-test-llm');
       const resultEl = document.getElementById('test-result');
@@ -1504,11 +1534,6 @@
 
     // ─── Convert ─────────────────────────────────────────────────────────────
 
-    function updateUploadHint() {
-      const el = document.getElementById('upload-hint-platform');
-      if (el) el.textContent = selectedPlatform;
-    }
-
     // Drag & drop
     document.addEventListener('DOMContentLoaded', () => {
       const zone = document.getElementById('upload-zone');
@@ -1527,10 +1552,11 @@
       try {
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('platform', selectedPlatform);
         const res = await api('POST', '/api/convert/upload', formData, true);
         if (res.error) { showToast(res.error); return; }
-        showToast(`Uploaded: ${file.name}`);
+        showToast(`Uploaded: ${file.name} (${res.entry.platform})`);
+        // Reset file input so the same file can be re-uploaded
+        document.getElementById('file-input').value = '';
         await loadUploadQueue();
       } catch (e) {
         showToast('Upload failed: ' + e.message);
@@ -1574,19 +1600,40 @@
         const statusColor = entry.status === 'parsed' ? 'color:var(--success)'
           : entry.status === 'error' ? 'color:var(--error)' : 'color:var(--fg-subtle)';
         const rowClass = entry.status === 'error' ? ' wiz-upload-queue-row--error' : '';
+        const isEditable = entry.status === 'queued';
+
+        let platformHtml;
+        if (isEditable) {
+          let opts = PLATFORMS.map(p =>
+            `<option value="${p}"${p === entry.platform ? ' selected' : ''}>${p}</option>`
+          ).join('');
+          platformHtml = `<select class="wiz-upload-queue-select" data-filename="${esc(entry.filename)}">${opts}</select>`;
+        } else {
+          platformHtml = `<div class="wiz-upload-queue-badge">${esc(entry.platform)}</div>`;
+        }
 
         html += `<div class="wiz-upload-queue-row${rowClass}">
           <div class="wiz-upload-queue-filename" title="${esc(entry.filename)}${entry.error ? '\n' + esc(entry.error) : ''}">${esc(entry.filename)}${entry.error ? ' <span style="color:var(--error);font-size:10px">error</span>' : ''}</div>
-          <div class="wiz-upload-queue-badge">${esc(entry.platform)}</div>
+          ${platformHtml}
           <div class="wiz-upload-queue-size">${formatBytes(entry.size)}</div>
           <div style="display:flex;align-items:center;gap:var(--sp-2)">
             <span class="wiz-upload-queue-status" style="${statusColor}">${statusIcon}</span>
-            <button class="wiz-upload-queue-remove" onclick="removeUpload('${esc(entry.filename)}')" title="Remove">&#x2715;</button>
+            <button class="wiz-upload-queue-remove" data-filename="${esc(entry.filename)}" title="Remove">&#x2715;</button>
           </div>
         </div>`;
       }
 
       queueEl.innerHTML = html;
+
+      // Event delegation for queue interactions
+      queueEl.onclick = (e) => {
+        const removeBtn = e.target.closest('.wiz-upload-queue-remove');
+        if (removeBtn) { removeUpload(removeBtn.dataset.filename); return; }
+      };
+      queueEl.onchange = (e) => {
+        const sel = e.target.closest('.wiz-upload-queue-select');
+        if (sel) { changePlatform(sel.dataset.filename, sel.value); return; }
+      };
 
       // Show/hide Convert All button
       const btn = document.getElementById('btn-convert-all');
@@ -1607,20 +1654,22 @@
     async function detectPlatform() {
       try {
         const res = await api('POST', '/api/convert/detect', {});
-        const el = document.getElementById('detect-result');
         if (res.platform) {
-          el.innerHTML = `Detected: <strong>${esc(res.platform)}</strong>`;
-          selectedPlatform = res.platform;
-          const sel = document.getElementById('platform-select');
-          if (sel) sel.value = res.platform;
-          updateUploadHint();
-          // Update the last queued file's platform in the UI
-          await loadUploadQueue();
+          showToast(`Detected: ${res.platform}`);
         } else {
-          el.textContent = 'Could not auto-detect.';
+          showToast('Could not auto-detect.');
         }
       } catch (e) {
         showToast('Detection failed: ' + e.message);
+      }
+    }
+
+    async function changePlatform(filename, platform) {
+      try {
+        await api('PATCH', `/api/convert/uploads/${encodeURIComponent(filename)}`, { platform });
+      } catch (e) {
+        showToast('Failed to update platform: ' + e.message);
+        await loadUploadQueue();
       }
     }
 

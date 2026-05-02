@@ -83,22 +83,32 @@ export function convertRoutes(): Array<{ method: string; pattern: string | RegEx
 
         const formData = await req.formData();
         const file = formData.get("file");
-        const platform = formData.get("platform") as PlatformType | null;
         if (!file || !(file instanceof File)) {
           return json({ error: "No file uploaded" }, 400);
-        }
-        if (!platform) {
-          return json({ error: "Platform is required" }, 400);
         }
 
         const rawDir = join(packageDir, "raw");
         await Deno.mkdir(rawDir, { recursive: true });
+
+        // Check for duplicate filename in queue
+        const existingEntries = await readUploadManifest(packageDir);
+        if (existingEntries.some((e) => e.filename === file.name)) {
+          return json({ error: `"${file.name}" is already in the queue` }, 409);
+        }
+
         const filePath = join(rawDir, file.name);
         const bytes = new Uint8Array(await file.arrayBuffer());
         await Deno.writeFile(filePath, bytes);
 
+        // Auto-detect platform if not specified
+        const platform = (formData.get("platform") as PlatformType | null) || await detectPlatform(filePath);
+        if (!platform) {
+          // Clean up the file since detection failed
+          try { await Deno.remove(filePath); } catch { /* ignore */ }
+          return json({ error: "Could not detect platform — try renaming to .json or .jsonl" }, 400);
+        }
+
         // Add to manifest
-        const entries = await readUploadManifest(packageDir);
         const entry: UploadEntry = {
           filename: file.name,
           platform,
@@ -106,8 +116,8 @@ export function convertRoutes(): Array<{ method: string; pattern: string | RegEx
           uploadedAt: new Date().toISOString(),
           status: "queued",
         };
-        entries.push(entry);
-        await writeUploadManifest(packageDir, entries);
+        existingEntries.push(entry);
+        await writeUploadManifest(packageDir, existingEntries);
 
         // Clear cached preview (new data available)
         cachedPreview = null;
@@ -161,6 +171,33 @@ export function convertRoutes(): Array<{ method: string; pattern: string | RegEx
 
         log("info", `Removed upload: ${filename}`);
         return json({ success: true });
+      },
+    },
+
+    // PATCH /api/convert/uploads/:filename — update platform for a queue entry
+    {
+      method: "PATCH",
+      pattern: /^\/api\/convert\/uploads\/(.+)$/,
+      handler: async (req, ctx) => {
+        const packageDir = getActivePackageDir();
+        if (!packageDir) return json({ error: "No active package" }, 400);
+
+        const filename = decodeURIComponent(ctx.params.param1);
+        const body = await req.json() as { platform?: PlatformType };
+        if (!body.platform) {
+          return json({ error: "Platform is required" }, 400);
+        }
+
+        const entries = await readUploadManifest(packageDir);
+        const entry = entries.find((e) => e.filename === filename);
+        if (!entry) {
+          return json({ error: "File not found in queue" }, 404);
+        }
+
+        entry.platform = body.platform;
+        await writeUploadManifest(packageDir, entries);
+
+        return json({ success: true, entry });
       },
     },
 

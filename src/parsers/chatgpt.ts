@@ -76,15 +76,18 @@ export class ChatGPTParser implements PlatformParser {
       if (!stat.isFile) return false;
       if (!filePath.endsWith(".json")) return false;
 
-      // Read first 1KB and check for ChatGPT export structure
+      // Read first 2KB and check for ChatGPT export structure
       const file = await Deno.open(filePath);
-      const buf = new Uint8Array(1024);
+      const buf = new Uint8Array(2048);
       const n = await file.read(buf) ?? 0;
       file.close();
 
       const head = new TextDecoder().decode(buf.slice(0, n));
-      // ChatGPT exports have mapping/current_node/title/create_time fields
-      return head.includes('"mapping"') && head.includes('"current_node"');
+      // Object format: { "uuid": { "mapping": ..., "current_node": ... } }
+      if (head.includes('"mapping"') && head.includes('"current_node"')) return true;
+      // Array format: [ { "id": "...", "title": ..., "create_time": ..., "mapping": ... } ]
+      if (head.startsWith('[') && head.includes('"create_time"') && head.includes('"mapping"')) return true;
+      return false;
     } catch {
       return false;
     }

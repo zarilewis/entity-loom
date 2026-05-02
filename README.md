@@ -20,12 +20,12 @@ Opens a browser wizard at http://localhost:3210. Walk through the 5 stages: Setu
 The wizard runs a 5-stage pipeline:
 
 1. **Setup** — Entity/user identity, pronouns, relationship context, LLM provider config
-2. **Convert** — Upload chat export files (multi-file, multi-platform), select platform per file, parse and preview, then store to a local SQLite database
+2. **Convert** — Upload chat export files (platform auto-detected), adjust per-file if needed, parse and preview, then store to a local SQLite database
 3. **Significant Memories** — Extracts journal-entry prose for genuinely significant events from raw conversations (LLM-powered, high bar)
 4. **Daily Memories** — Generates day-by-day bullet-point summaries from the chat database (LLM-powered)
 5. **Knowledge Graph** — Extracts entities and relationships from all memory files into a graph database (LLM-powered), then consolidates with rule-based pruning
 
-Each stage is independently resumable. If interrupted, refresh the page and click Resume.
+Each stage is independently resumable. If interrupted, refresh the page and click Resume. If you want to start over, use the Purge button to delete a package entirely.
 
 ### Platform tracking
 
@@ -38,7 +38,7 @@ During processing, the platform is tracked in a `platform` column in `chats.db`.
 
 ### Multi-platform imports
 
-Upload files from different platforms (e.g., SillyTavern and ChatGPT) in the Convert stage. Select the platform from a dropdown for each batch of uploads, queue them up, then convert all at once. Conversations are deduplicated by ID.
+Upload files from different platforms (e.g., SillyTavern and ChatGPT) in the Convert stage. The platform is auto-detected on upload — change it via the per-file dropdown in the queue if wrong. Queue them up, then convert all at once. Conversations are deduplicated by ID. Duplicate filenames are rejected.
 
 ## Setup
 
@@ -134,7 +134,7 @@ src/
     cost-estimator.ts      Token/cost estimation
     stage-lock.ts          Single-stage mutex
   stages/
-    setup-stage.ts         Setup: config, resume, LLM test
+    setup-stage.ts         Setup: config, resume, purge, LLM test
     convert-stage.ts       Multi-file upload queue, parse, store
     significant-stage.ts   Background significant extraction
     daily-stage.ts         Background daily extraction
@@ -169,9 +169,11 @@ POST /api/setup                         Save config
 POST /api/setup/test-llm                Test LLM connection
 GET  /api/setup/packages                List existing packages
 POST /api/setup/resume                  Resume a package
+DELETE /api/setup/package                Purge (delete) a package
 
-POST /api/convert/upload                Upload file (multipart, requires platform field)
+POST /api/convert/upload                Upload file (multipart, platform auto-detected)
 GET  /api/convert/uploads                List upload queue
+PATCH /api/convert/uploads/:filename    Update platform for a queued file
 DELETE /api/convert/uploads/:filename    Remove file from queue
 POST /api/convert/detect                Auto-detect platform
 POST /api/convert/parse                 Parse all queued files
@@ -200,9 +202,9 @@ GET  /graph                             Graph viewer
 GET  /api/events                        SSE stream
 ```
 
-## Checkpoint and resume
+## Checkpoint, resume, and purge
 
-Checkpoints are saved after every item (conversation, date, or memory file). If a stage is interrupted, refresh the page and click Resume on the Setup page. The wizard restores the full state from the checkpoint.
+Checkpoints are saved after every item (conversation, date, or memory file). If a stage is interrupted, refresh the page and click Resume on the Setup page. The wizard restores the full state from the checkpoint. To delete a package entirely (all chats, memories, graph data), use the Purge button on the Setup page.
 
 ## Related projects
 

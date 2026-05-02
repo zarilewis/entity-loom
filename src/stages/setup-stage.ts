@@ -5,7 +5,7 @@
  * test LLM connection, list packages for resume.
  */
 
-import { join } from "@std/path";
+import { join, basename } from "@std/path";
 import type { Handler } from "../server/server.ts";
 import type { WizardConfig, WizardState, CheckpointStateV2, StageName, StageStatus } from "../types.ts";
 import {
@@ -49,6 +49,14 @@ export function setActiveCheckpoint(checkpoint: CheckpointStateV2): void {
 /** Set active config (used by stages to update platform/instance) */
 export function setActiveConfig(config: WizardConfig): void {
   activeConfig = config;
+}
+
+export function resetActivePackage(dir: string): void {
+  if (activePackageDir === dir) {
+    activePackageDir = null;
+    activeConfig = null;
+    activeCheckpoint = null;
+  }
 }
 
 /** Build wizard state for the status endpoint */
@@ -229,6 +237,42 @@ export function setupRoutes(): Array<{ method: string; pattern: string; handler:
 
         log("info", `Resumed package: ${body.packageDir}`);
         return json({ success: true, config: activeConfig, currentStage: activeCheckpoint.currentStage });
+      },
+    },
+
+    // DELETE /api/setup/package — purge (delete) an existing package
+    {
+      method: "DELETE",
+      pattern: "/api/setup/package",
+      handler: async (req) => {
+        const body = await req.json() as { packageDir: string };
+        if (!body.packageDir) {
+          return json({ error: "packageDir is required" }, 400);
+        }
+
+        // Validate path is inside OUTPUT_DIR to prevent traversal
+        const resolved = new URL(body.packageDir, `file://${Deno.cwd()}/`).pathname;
+        const outputResolved = new URL(OUTPUT_DIR, `file://${Deno.cwd()}/`).pathname;
+        if (!resolved.startsWith(outputResolved + "/")) {
+          return json({ error: "Invalid package directory" }, 400);
+        }
+
+        // Verify it exists and has a config
+        const config = await loadWizardConfig(body.packageDir);
+        if (!config) {
+          return json({ error: "Package not found" }, 404);
+        }
+
+        try {
+          await Deno.remove(body.packageDir, { recursive: true });
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e);
+          return json({ error: `Failed to delete: ${message}` }, 500);
+        }
+
+        resetActivePackage(body.packageDir);
+        log("info", `Purged package: ${basename(body.packageDir)}`);
+        return json({ success: true });
       },
     },
 

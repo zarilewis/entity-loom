@@ -39,7 +39,7 @@ deno test -A tests/    # Run tests
 | `src/server/logger.ts` | Per-run log file in logs/ |
 | `src/server/cost-estimator.ts` | Token/cost estimation |
 | `src/server/stage-lock.ts` | Ensures only one stage runs at a time |
-| `src/stages/setup-stage.ts` | Setup: save config, create package dir, resume |
+| `src/stages/setup-stage.ts` | Setup: save config, create package dir, resume, purge package |
 | `src/stages/convert-stage.ts` | Multi-file upload queue, per-file platform, parse all, confirm |
 | `src/stages/significant-stage.ts` | Background significant memory extraction |
 | `src/stages/daily-stage.ts` | Background daily memory extraction |
@@ -48,7 +48,7 @@ deno test -A tests/    # Run tests
 | `src/types.ts` | Shared types (ImportedConversation, WizardConfig, UploadEntry, etc.) |
 | `src/config.ts` | WizardConfig persistence, checkpoint migration |
 | `web/wizard.html` | Self-contained wizard UI (HTML/CSS/JS) |
-| `web/graph.html` | Standalone graph viewer (vis-network) |
+| `web/graph.html` | Standalone graph viewer (vis-network, with back link to wizard) |
 | `src/parsers/chatgpt.ts` | ChatGPT JSON parser |
 | `src/parsers/claude.ts` | Claude JSONL parser |
 | `src/parsers/sillytavern.ts` | SillyTavern JSONL parser |
@@ -72,7 +72,7 @@ deno test -A tests/    # Run tests
 | 4. Daily | Extract from converted DB | chats.db | memories/daily/*.md |
 | 5. Graph | Populate knowledge graph + finalize | memories/* | graph.db |
 
-**Convert stage**: Users upload one or more files per platform (select platform from dropdown, upload, repeat for other platforms). Files queue up in a visual table. "Convert All" parses every queued file. "Confirm & Store" writes to DB. Platform is tracked per-conversation in `chats.db` (extra column) and stripped during finalization.
+**Convert stage**: Users upload files and the platform is auto-detected (ChatGPT, Claude, SillyTavern). The platform can be changed per-file via a dropdown in the upload queue. Duplicate filenames are rejected. "Convert All" parses every queued file. "Confirm & Store" writes to DB. Platform is tracked per-conversation in `chats.db` (extra column) and stripped during finalization.
 
 **Memory [via:] tags**: Daily and significant memories use `[via:platform]` (e.g. `[via:sillytavern]`, `[via:chatgpt]`) per bullet/conversation, derived from the source platform rather than the tool's instance ID. This is stored in `chats.db`'s `platform` column and removed during finalization.
 
@@ -120,6 +120,8 @@ During processing, each conversation's source platform is stored in `chats.db`:
 
 **CheckpointStateV2** extends v1 — existing packages can be loaded and resumed.
 Migration maps old pass fields to new stage fields.
+
+**Package management**: Packages can be resumed or purged from the Setup panel. Purge deletes the entire package directory (chats, memories, graph, raw exports).
 
 ## Related Projects
 
