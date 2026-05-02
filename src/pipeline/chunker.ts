@@ -85,6 +85,7 @@ export function chunkMessages(
 export interface ConversationChunk {
   conversationId: string;
   title?: string;
+  platform?: string;
   messages: Array<{ role: string; content: string }>;
   dateFrom: Date;
   dateTo: Date;
@@ -119,6 +120,7 @@ export function chunkConversationForSignificance(
     return [{
       conversationId: conv.id,
       title: conv.title,
+      platform: conv.platform,
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
       dateFrom: messages[0].createdAt,
       dateTo: messages[messages.length - 1].createdAt,
@@ -154,6 +156,7 @@ export function chunkConversationForSignificance(
     chunks.push({
       conversationId: conv.id,
       title: conv.title,
+      platform: conv.platform,
       messages: chunkMessages,
       dateFrom: messages[startIdx].createdAt,
       dateTo: messages[endIdx - 1].createdAt,

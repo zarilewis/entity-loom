@@ -115,14 +115,14 @@ export class SillyTavernParser implements PlatformParser {
         // Replace image references with [image was here]
         const content = this.cleanContent(msg.mes);
 
-        // Skip messages with no timestamp
-        if (!msg.send_date) continue;
+        const createdAt = parseSTDate(msg.send_date);
+        if (!createdAt) continue;
 
         messages.push({
           id,
           role,
           content,
-          createdAt: new Date(msg.send_date),
+          createdAt,
         });
       } catch {
         // Skip malformed message lines
@@ -172,6 +172,31 @@ export class SillyTavernParser implements PlatformParser {
     cleaned = cleaned.replace(/\[img\b[^\]]*\][^\[]*?\[\/img\]/gi, "[image was here]");
     return cleaned;
   }
+}
+
+/**
+ * Parse a SillyTavern send_date string into a Date.
+ * Handles both ISO format ("2025-12-13T05:03:02.083Z") and the older
+ * human-readable format ("2025-04-25 @18h 13m 51s 526ms").
+ * Returns null if the date cannot be parsed.
+ */
+function parseSTDate(sendDate: string): Date | null {
+  if (!sendDate) return null;
+
+  // Try standard ISO/JS parsing first
+  const d = new Date(sendDate);
+  if (!isNaN(d.getTime())) return d;
+
+  // Try older SillyTavern format: "2025-04-25 @18h 13m 51s 526ms"
+  const match = sendDate.match(
+    /^(\d{4})-(\d{2})-(\d{2})\s+@(\d{1,2})h\s+(\d{1,2})m\s+(\d{1,2})s\s+(\d{1,3})ms$/,
+  );
+  if (!match) return null;
+
+  const [, year, month, day, hour, min, sec, ms] = match;
+  return new Date(
+    `${year}-${month}-${day}T${hour.padStart(2, "0")}:${min.padStart(2, "0")}:${sec.padStart(2, "0")}.${ms.padStart(3, "0")}Z`,
+  );
 }
 
 /**

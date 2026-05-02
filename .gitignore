@@ -3,3 +3,4 @@
 .loom-exports/
 *.lock
 .DS_Store
+logs/

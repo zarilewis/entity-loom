@@ -14,7 +14,8 @@ const SCHEMA_SQL = `
     id TEXT PRIMARY KEY,
     title TEXT,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    platform TEXT
   );
 
   CREATE TABLE IF NOT EXISTS messages (
@@ -90,9 +91,9 @@ export class DBWriter {
 
     // Upsert conversation
     this.db.prepare(
-      `INSERT OR IGNORE INTO conversations (id, title, created_at, updated_at)
-       VALUES (?, ?, ?, ?)`,
-    ).run(conv.id, conv.title || null, createdAt, updatedAt);
+      `INSERT OR IGNORE INTO conversations (id, title, created_at, updated_at, platform)
+       VALUES (?, ?, ?, ?, ?)`,
+    ).run(conv.id, conv.title || null, createdAt, updatedAt, conv.platform || null);
 
     let messageCount = 0;
 
@@ -171,6 +172,29 @@ export class DBWriter {
   getConversationTitle(convId: string): string | null {
     const rows = this.db.prepare("SELECT title FROM conversations WHERE id = ?").all(convId) as Array<{ title: string }>;
     return rows[0]?.title || null;
+  }
+
+  /** Get conversation platform by ID */
+  getConversationPlatform(convId: string): string | null {
+    const rows = this.db.prepare("SELECT platform FROM conversations WHERE id = ?").all(convId) as Array<{ platform: string }>;
+    return rows[0]?.platform || null;
+  }
+
+  /** Strip the platform column to make the DB Psycheros-compatible.
+   *  Recreates the conversations table without the platform column. */
+  stripPlatformColumn(): void {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS conversations_clean (
+        id TEXT PRIMARY KEY,
+        title TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      INSERT OR IGNORE INTO conversations_clean (id, title, created_at, updated_at)
+        SELECT id, title, created_at, updated_at FROM conversations;
+      DROP TABLE conversations;
+      ALTER TABLE conversations_clean RENAME TO conversations;
+    `);
   }
 
   /** Close the database connection */

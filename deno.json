@@ -1,13 +1,10 @@
 {
   "name": "@entity/entity-loom",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "exports": "./src/mod.ts",
   "tasks": {
+    "start": "deno run -A src/main.ts",
     "dev": "deno run -A --watch src/main.ts",
-    "import": "deno run -A src/main.ts import",
-    "resume": "deno run -A src/main.ts resume",
-    "status": "deno run -A src/main.ts status",
-    "analyze": "deno run -A src/main.ts analyze",
     "check": "deno check src/main.ts",
     "lint": "deno lint",
     "test": "deno test -A tests/"

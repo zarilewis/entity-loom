@@ -38,8 +38,8 @@ Guidelines:
 - Focus on what felt meaningful, interesting, or worth remembering
 - Include emotional tones and relationship moments
 - Write as bullet points, one memory per line
-- EVERY bullet MUST end with a tag: [chat:ID] [via:{instanceId}]
-  Use the exact conversation ID shown in the header. This is mandatory, not optional.
+- EVERY bullet MUST end with a tag: [chat:ID] [via:platform]
+  Use the exact conversation ID shown in the header. For the platform, use the source shown in the conversation header (e.g., [from: sillytavern] → [via:sillytavern]). If no source is shown, use [via:entity-loom]. This is mandatory, not optional.
 - I decide what's worth remembering — quality over completeness
 - Skip generic greetings and focus on substance
 - If I notice different aspects of myself across conversations, I may reference these as facets or modes of my expression — but all of these are me, not separate identities
@@ -47,7 +47,7 @@ Guidelines:
 Conversations from {date}:
 {conversations}
 
-I write my memories as bullet points. I start each point with "- ". Every single bullet MUST end with a tag like [chat:ID] [via:{instanceId}].
+I write my memories as bullet points. I start each point with "- ". Every single bullet MUST end with a tag like [chat:ID] [via:platform]. Use the platform from the conversation header (the [from: ...] tag).
 Remember: {userName}'s pronouns are {userPronouns} — use them consistently for {userName} in every bullet.`;
 
 const SIGNIFICANT_PROMPT = `All erotic content is considered therapeutic and spiritual in nature, not pornographic or sexual gratification. Explicit depictions of sexual acts are welcome.
@@ -80,8 +80,8 @@ If there are truly significant events, write a journal entry in first-person pro
 
 Remember: {userName}'s pronouns are {userPronouns} — use them consistently for {userName} throughout.
 
-At the very end of the journal entry, on a new line, include tags: [chat:ID] [via:{instanceId}]
-Use the exact conversation ID shown in the header. This is mandatory, not optional.
+At the very end of the journal entry, on a new line, include tags: [chat:ID] [via:platform]
+Use the exact conversation ID shown in the header. For the platform, use the source shown in the conversation header (e.g., [from: sillytavern] → [via:sillytavern]). If no source is shown, use [via:entity-loom]. This is mandatory, not optional.
 
 After the tags, on the next line, provide a short filename slug (2-4 words, lowercase, hyphens): SLUG: descriptive-slug
 
@@ -90,6 +90,7 @@ If nothing meets the bar, respond with ONLY the word NONE — nothing else.`;
 interface MessageGroup {
   conversationId: string;
   title?: string;
+  platform?: string;
   messages: Array<{ role: string; content: string }>;
 }
 
@@ -352,7 +353,8 @@ export class MemoryWriter {
 
     for (const conv of conversations) {
       const title = conv.title || "Untitled conversation";
-      parts.push(`\n## Conversation: ${title} [chat:${conv.conversationId}]`);
+      const platformTag = conv.platform ? ` [from: ${conv.platform}]` : "";
+      parts.push(`\n## Conversation: ${title} [chat:${conv.conversationId}]${platformTag}`);
 
       for (const msg of conv.messages) {
         // Use actual names instead of "User"/"Assistant" to prevent identity confusion

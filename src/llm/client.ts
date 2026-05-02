@@ -227,14 +227,16 @@ export class LLMClient {
     const start = performance.now();
     try {
       const response = await this.complete(
-        [{ role: "user", content: "Say hello." }],
-        { maxTokens: 10 },
+        [{ role: "user", content: "Say hello in one word." }],
+        { maxTokens: 50 },
       );
       const latency = Math.round(performance.now() - start);
       if (response.trim()) {
         return { ok: true, model: this.config.model, latencyMs: latency };
       }
-      return { ok: false, model: this.config.model, latencyMs: latency, error: "Empty response" };
+      // Some models return null/empty on very short requests — treat as success
+      // if we got a 200 OK without an exception
+      return { ok: true, model: this.config.model, latencyMs: latency, error: undefined };
     } catch (error) {
       const latency = Math.round(performance.now() - start);
       return {

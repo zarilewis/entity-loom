@@ -7,6 +7,16 @@
 /** Supported source platforms */
 export type PlatformType = "chatgpt" | "claude" | "sillytavern" | "kindroid" | "letta";
 
+/** An uploaded file in the convert queue */
+export interface UploadEntry {
+  filename: string;
+  platform: PlatformType;
+  size: number;
+  uploadedAt: string;
+  status: "queued" | "parsed" | "stored" | "error";
+  error?: string;
+}
+
 /** A single message from an external platform, normalized for import */
 export interface ImportedMessage {
   /** Original message/node ID from the platform */
@@ -159,4 +169,108 @@ export interface ManifestData {
     graphNodes: number;
     graphEdges: number;
   };
+}
+
+// ─── Wizard Types ────────────────────────────────────────────────────────
+
+/** The five wizard pipeline stages */
+export type StageName = "setup" | "convert" | "significant" | "daily" | "graph";
+
+/** Status of a wizard stage */
+export type StageStatus = "pending" | "running" | "completed" | "error" | "aborted";
+
+/** Persisted wizard configuration (saved as config.json in package dir) */
+export interface WizardConfig {
+  entityName: string;
+  userName: string;
+  entityPronouns: string;
+  userPronouns: string;
+  relationshipContext: string;
+  contextNotes: string;
+  platform: PlatformType;
+  instanceId: string;
+  llmApiKey: string;
+  llmBaseUrl: string;
+  llmModel: string;
+  maxContextTokens: number;
+  rateLimitMs: number;
+  requestTimeoutMs: number;
+}
+
+/** Cost estimation for a processing stage */
+export interface CostEstimate {
+  inputTokens: number;
+  outputTokens: number;
+  requests: number;
+  estimatedCost: string;
+  description: string;
+}
+
+/** SSE event sent to the wizard UI */
+export interface SSEEvent {
+  type: string;
+  stage?: StageName;
+  data?: Record<string, unknown>;
+  timestamp: string;
+}
+
+/** Preview stats from parsed export (before storing) */
+export interface PreviewStats {
+  conversationCount: number;
+  messageCount: number;
+  dateFrom: string | null;
+  dateTo: string | null;
+  conversationsByMonth: Record<string, number>;
+}
+
+/** A memory file for review in the UI */
+export interface MemoryFile {
+  filename: string;
+  type: "daily" | "significant";
+  content: string;
+}
+
+/** Per-stage status in CheckpointStateV2 */
+export interface StageCheckpoint {
+  status: StageStatus;
+  completed: boolean;
+  processedItems: string[];
+  failedItems: string[];
+  extra?: Record<string, unknown>;
+}
+
+/**
+ * CheckpointStateV2 — extends the v1 checkpoint for the wizard.
+ * Stores per-stage progress instead of per-pass progress.
+ * Migration: v1 pass fields map to v2 stage fields.
+ */
+export interface CheckpointStateV2 {
+  version: 2;
+  currentStage: StageName;
+  platform: PlatformType;
+  instanceId: string;
+  entityName: string;
+  userName: string;
+  contextNotes: string;
+  inputPath: string;
+  startedAt: string;
+  stages: {
+    setup: StageCheckpoint;
+    convert: StageCheckpoint;
+    significant: StageCheckpoint;
+    daily: StageCheckpoint;
+    graph: StageCheckpoint;
+  };
+  /** Retain v1 data for migration compatibility */
+  v1?: CheckpointState;
+}
+
+/** Full wizard state returned by GET /api/status */
+export interface WizardState {
+  currentStage: StageName;
+  config: WizardConfig | null;
+  checkpoint: CheckpointStateV2 | null;
+  hasPackage: boolean;
+  packageDir: string | null;
+  stageStatuses: Record<StageName, StageStatus>;
 }
