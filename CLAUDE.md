@@ -50,7 +50,7 @@ deno test -A tests/    # Run tests
 | `web/wizard.html` | Self-contained wizard UI (HTML/CSS/JS) |
 | `web/graph.html` | Standalone graph viewer (vis-network, with back link to wizard) |
 | `src/parsers/chatgpt.ts` | ChatGPT JSON parser |
-| `src/parsers/claude.ts` | Claude JSONL parser |
+| `src/parsers/claude.ts` | Claude parser (JSONL + JSON array formats, thinking/thinking_blocks reasoning) |
 | `src/parsers/sillytavern.ts` | SillyTavern JSONL parser |
 | `src/parsers/letta.ts` | Letta agent chat log JSON parser (reasoning + system prompt extraction) |
 | `src/parsers/kindroid.ts` | Kindroid/KinLog JSON parser (most-frequent-sender role detection, no timestamps) |
