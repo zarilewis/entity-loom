@@ -16,6 +16,7 @@ interface ClaudeMessage {
   text: string;
   created_at: string;
   model?: string;
+  thinking?: string;
   attachments?: Array<{
     file_name?: string;
     file_type?: string;
@@ -111,6 +112,7 @@ export class ClaudeParser implements PlatformParser {
         content,
         createdAt: new Date(msg.created_at),
         model: msg.model,
+        reasoning: msg.role === "assistant" ? (msg.thinking || undefined) : undefined,
       });
     }
 

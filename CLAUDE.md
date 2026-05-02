@@ -53,7 +53,7 @@ deno test -A tests/    # Run tests
 | `src/parsers/claude.ts` | Claude JSONL parser |
 | `src/parsers/sillytavern.ts` | SillyTavern JSONL parser |
 | `src/pipeline/chunker.ts` | Context window chunking (with platform passthrough) |
-| `src/writers/db-writer.ts` | SQLite writes (conversations + messages + platform tracking) |
+| `src/writers/db-writer.ts` | SQLite writes (conversations + messages + reasoning + platform tracking) |
 | `src/writers/memory-writer.ts` | Daily + significant memory files (per-platform [via:] tags) |
 | `src/writers/graph-writer.ts` | Knowledge graph population (LLM extraction) |
 | `src/writers/graph-consolidator.ts` | Post-extraction graph consolidation |
@@ -72,7 +72,7 @@ deno test -A tests/    # Run tests
 | 4. Daily | Extract from converted DB | chats.db | memories/daily/*.md |
 | 5. Graph | Populate knowledge graph + finalize | memories/* | graph.db |
 
-**Convert stage**: Users upload files and the platform is auto-detected (ChatGPT, Claude, SillyTavern). The platform can be changed per-file via a dropdown in the upload queue. Duplicate filenames are rejected. "Convert All" parses every queued file. "Confirm & Store" writes to DB. Platform is tracked per-conversation in `chats.db` (extra column) and stripped during finalization.
+**Convert stage**: Users upload files and the platform is auto-detected (ChatGPT, Claude, SillyTavern). The platform can be changed per-file via a dropdown in the upload queue. Duplicate filenames are rejected. "Convert All" parses every queued file. "Confirm & Store" writes to DB. Platform is tracked per-conversation in `chats.db` (extra column) and stripped during finalization. Reasoning/thinking chains from assistant messages are preserved in the `reasoning_content` column (SillyTavern: `extra.thinking`/`extra.reasoning`; ChatGPT o1/o3: thinking parts; Claude: `thinking` field). Reasoning is for Psycheros display only — not included in memory extraction prompts.
 
 **Memory [via:] tags**: Daily and significant memories use `[via:platform]` (e.g. `[via:sillytavern]`, `[via:chatgpt]`) per bullet/conversation, derived from the source platform rather than the tool's instance ID. This is stored in `chats.db`'s `platform` column and removed during finalization.
 

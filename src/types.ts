@@ -29,6 +29,8 @@ export interface ImportedMessage {
   createdAt: Date;
   /** Model slug if available from export metadata */
   model?: string;
+  /** Reasoning/thinking chain if available from the platform */
+  reasoning?: string;
   /** Whether this is a system prompt (extracted, not stored as message) */
   isSystemPrompt?: boolean;
   /** The actual system prompt text */

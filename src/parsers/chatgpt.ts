@@ -170,12 +170,15 @@ export class ChatGPTParser implements PlatformParser {
       // Skip empty messages
       if (!content.trim()) continue;
 
+      const reasoning = this.extractThinking(msg);
+
       messages.push({
         id: msg.id,
         role,
         content,
         createdAt: new Date(this.clampTimestamp(msg.create_time) * 1000),
         model: msg.metadata?.model_slug,
+        reasoning: reasoning || undefined,
       });
     }
 
@@ -234,5 +237,21 @@ export class ChatGPTParser implements PlatformParser {
     }
 
     return textParts.join("\n");
+  }
+
+  /**
+   * Extract thinking/reasoning content from a ChatGPT message.
+   * o1/o3 models store reasoning as parts with content_type "thinking".
+   */
+  private extractThinking(msg: ChatGPTMessage): string {
+    if (!msg.content?.parts) return "";
+
+    const parts: string[] = [];
+    for (const part of msg.content.parts) {
+      if (typeof part !== "string" && part.content_type === "thinking" && part.text) {
+        parts.push(part.text);
+      }
+    }
+    return parts.join("\n");
   }
 }

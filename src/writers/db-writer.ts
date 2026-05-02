@@ -99,14 +99,14 @@ export class DBWriter {
 
     // Insert messages (skip system and tool messages)
     const insertMsg = this.db.prepare(
-      `INSERT OR IGNORE INTO messages (id, conversation_id, role, content, created_at)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT OR IGNORE INTO messages (id, conversation_id, role, content, reasoning_content, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
     );
 
     for (const msg of conv.messages) {
       if (msg.role === "system" || msg.role === "tool") continue;
 
-      insertMsg.run(msg.id, conv.id, msg.role, msg.content, msg.createdAt.toISOString());
+      insertMsg.run(msg.id, conv.id, msg.role, msg.content, msg.reasoning || null, msg.createdAt.toISOString());
       messageCount++;
     }
 

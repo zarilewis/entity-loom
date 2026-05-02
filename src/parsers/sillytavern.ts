@@ -115,6 +115,14 @@ export class SillyTavernParser implements PlatformParser {
         // Replace image references with [image was here]
         const content = this.cleanContent(msg.mes);
 
+        // Extract reasoning from SillyTavern's extra field
+        let reasoning: string | undefined;
+        if (msg.extra) {
+          reasoning = (msg.extra as Record<string, unknown>).thinking as string
+            || (msg.extra as Record<string, unknown>).reasoning as string
+            || undefined;
+        }
+
         const createdAt = parseSTDate(msg.send_date);
         if (!createdAt) continue;
 
@@ -123,6 +131,7 @@ export class SillyTavernParser implements PlatformParser {
           role,
           content,
           createdAt,
+          reasoning,
         });
       } catch {
         // Skip malformed message lines
