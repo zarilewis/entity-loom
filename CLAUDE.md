@@ -41,7 +41,7 @@ deno test -A tests/    # Run tests
 | `src/server/stage-lock.ts` | Ensures only one stage runs at a time |
 | `src/stages/setup-stage.ts` | Setup: save config, create package dir, resume, purge package |
 | `src/stages/convert-stage.ts` | Multi-file upload queue, per-file platform, parse all, confirm |
-| `src/stages/staging-stage.ts` | Staging area: browse, search, tag, select, edit conversations before commit |
+| `src/stages/staging-stage.ts` | Staging area: browse, search, tag palette, select, edit, commit, export-only, Psycheros compare |
 | `src/stages/significant-stage.ts` | Background significant memory extraction |
 | `src/stages/daily-stage.ts` | Background daily memory extraction |
 | `src/stages/graph-stage.ts` | Background graph population + graph CRUD + skip endpoint + finalize + zip download |
@@ -58,7 +58,7 @@ deno test -A tests/    # Run tests
 | `src/parsers/title-utils.ts` | Shared title generation with date-range fallback |
 | `src/pipeline/chunker.ts` | Context window chunking (with platform passthrough) |
 | `src/writers/db-writer.ts` | SQLite writes (conversations + messages + reasoning + platform tracking) |
-| `src/writers/staging-writer.ts` | Staging SQLite layer (staging.db, FTS5 search, tags, tag sets, Psycheros compare) |
+| `src/writers/staging-writer.ts` | Staging SQLite layer (staging.db, FTS5 search, tags, tag definitions/palette, Psycheros compare) |
 | `src/writers/memory-writer.ts` | Daily + significant memory files (per-platform [via:] tags) |
 | `src/writers/graph-writer.ts` | Knowledge graph population (LLM extraction) |
 | `src/writers/graph-consolidator.ts` | Post-extraction graph consolidation |
@@ -73,20 +73,20 @@ deno test -A tests/    # Run tests
 |-------|------|-------|--------|
 | 1. Setup | Identity + LLM config | User form | config.json |
 | 2. Convert | Multi-file upload with per-file platform | Export files | chats.db + raw/ |
-| 3. Significant | Extract from raw conversations | raw/conversations.json | memories/significant/*.md |
+| 3. Significant | Extract from raw conversations | raw/_loom_conversations.json | memories/significant/*.md |
 | 4. Daily | Extract from converted DB | chats.db | memories/daily/*.md |
 | 5. Graph | Populate knowledge graph + finalize | memories/* | graph.db |
 
 **Convert stage**: Users upload files and the platform is auto-detected (ChatGPT, Claude, SillyTavern). The platform can be changed per-file via a dropdown in the upload queue. Duplicate filenames are allowed (overwrites and resets to queued). "Convert All" parses every queued file, then auto-populates the staging area. Platform is tracked per-conversation in `chats.db` (extra column) and stripped during finalization. Reasoning/thinking chains from assistant messages are preserved in the `reasoning_content` column (SillyTavern: `extra.thinking`/`extra.reasoning`; ChatGPT o1/o3: thinking parts; Claude: `thinking` field). Reasoning is for Psycheros display only — not included in memory extraction prompts.
 
 **Staging area** (sub-view within Convert panel, shown after parse): A review/curation step between Parse and Commit where users can browse, search, tag, select, and edit conversations before committing to `chats.db`. Features:
-- **Browse tab**: Paginated conversation list with per-conversation include/exclude toggle, tags, and Psycheros comparison badges (new/existing/changed)
-- **Search tab**: FTS5 full-text search across conversation titles and message content
-- **Tags tab**: Apply arbitrary tags to conversations, save/load/apply/delete named tag sets that snapshot all tags + inclusion state for reuse across re-imports
-- **Psycheros Compare tab**: Compare staged conversations against an existing Psycheros `chats.db` by content hash to flag new, existing, or changed conversations
+- **Psycheros Comparison**: Always-visible section above the tabs. Auto-detects Psycheros databases in sibling directories. Compares staged conversations against an existing Psycheros `chats.db` by conversation ID to flag new, existing, or changed conversations.
+- **Tag palette**: Color-coded tag bar above the tabs. Users predefine tags with names and colors from 10 preset swatches. Tags persist in `tag_definitions` table across sessions. Click a palette chip to filter the browse list to conversations with that tag. Apply tags to selected conversations by clicking palette chips in the toolbar. Legacy tags without a palette entry render as gray.
+- **Browse tab**: Paginated conversation list with per-conversation include/exclude toggle, colored tag chips, and Psycheros comparison badges (new/existing/changed). Toolbar has palette chips for quick tag application.
+- **Search tab**: FTS5 full-text search aggregated by conversation with match counts. Shows conversation rows with pagination, checkboxes for bulk selection, and palette chips for tagging from search results. Tags can be removed from individual results.
 - **Message viewer**: Click a conversation to view/edit individual messages (edits stored separately, applied on commit)
-- **Commit Selected**: Writes included conversations (with any edits) to `chats.db`, updates checkpoint, advances wizard to Significant stage
-- **Export Only**: One-click fast-track that commits selected conversations, skips all remaining pipeline stages (significant/daily/graph), finalizes the package, and shows the download button — for users who just want their chats in Psycheros without memory/graph processing
+- **Commit Selected**: Writes included conversations (with any edits) to `chats.db`, updates checkpoint, serializes to `raw/_loom_conversations.json`, advances wizard to Significant stage
+- **Export Only**: One-click fast-track that commits selected conversations, skips all remaining pipeline stages (significant/daily/graph), finalizes the package, and shows a clean download screen. If any tagged conversations are included, `chats.db` inside the ZIP is renamed to include the tag names (e.g. `entityA-entityB-chats.db`).
 
 Staging data lives in `staging.db` (separate from `chats.db`) and is excluded from the download ZIP.
 
@@ -105,10 +105,10 @@ and per-item checkpointing. Only one stage runs at a time.
 
 **Batched graph extraction**: Daily memory files are processed in batches of ~14 (roughly two-week increments) in a single LLM call. This reduces API calls and improves entity consistency across memories (cross-referenced people, places, etc. get unified labels). Significant memories are still processed individually. No content is truncated at any stage — daily, significant, and graph processing all receive full content, chunking at message boundaries when needed.
 
-**REST API**: All operations via `/api/*` endpoints. Staging area endpoints under `/api/staging/*` (populate, conversations CRUD, search, tags, tag-sets, commit, export-only, psycheros compare).
+**REST API**: All operations via `/api/*` endpoints. Staging area endpoints under `/api/staging/*` (populate, conversations CRUD, bulk tags, search, tag palette CRUD, commit, export-only, psycheros compare/autodetect).
 **SSE**: Real-time progress at `/api/events`.
 **Checkpoint**: Saved after every item — supports abort/resume.
-**Download**: `GET /api/download` streams the package as a zip after finalization.
+**Download**: `GET /api/download` streams the package as a zip after finalization. Optional `?tags=` query parameter renames `chats.db` inside the ZIP (e.g. `?tags=entityA-entityB-` produces `entityA-entityB-chats.db`).
 
 ## Platform Tracking
 
@@ -131,7 +131,7 @@ During processing, each conversation's source platform is stored in `chats.db`:
 │   └── significant/
 ├── graph.db
 └── raw/
-    ├── conversations.json
+    ├── _loom_conversations.json
     └── uploads.json   (upload queue manifest)
 ```
 

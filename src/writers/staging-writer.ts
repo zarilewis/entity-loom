@@ -68,6 +68,11 @@ const SCHEMA_SQL = `
     snapshot_json TEXT NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS tag_definitions (
+    name TEXT PRIMARY KEY,
+    color TEXT NOT NULL DEFAULT '#6b7280'
+  );
+
   CREATE TABLE IF NOT EXISTS psycheros_matches (
     conversation_id TEXT PRIMARY KEY,
     match_status TEXT NOT NULL CHECK (match_status IN ('new', 'existing', 'changed')),
@@ -343,9 +348,16 @@ export class StagingWriter {
     createdAt: string;
     updatedAt: string;
   }> {
-    return this.db.prepare(
+    const rows = this.db.prepare(
       "SELECT id, title, platform, created_at, updated_at FROM staged_conversations WHERE included = 1",
-    ).all() as Array<{ id: string; title: string | null; platform: string; createdAt: string; updatedAt: string }>;
+    ).all() as Array<Record<string, unknown>>;
+    return rows.map((r) => ({
+      id: r.id as string,
+      title: (r.title as string) || null,
+      platform: r.platform as string,
+      createdAt: r.created_at as string,
+      updatedAt: r.updated_at as string,
+    }));
   }
 
   // ─── Tags ───────────────────────────────────────────────────────────
@@ -386,6 +398,37 @@ export class StagingWriter {
     return rows.map((r) => r.tag);
   }
 
+  // ─── Tag Definitions (palette) ──────────────────────────────────────
+
+  getTagDefinitions(): Array<{ name: string; color: string }> {
+    return this.db.prepare("SELECT name, color FROM tag_definitions ORDER BY name").all() as Array<{
+      name: string;
+      color: string;
+    }>;
+  }
+
+  createTagDefinition(name: string, color: string): void {
+    this.db.prepare(
+      "INSERT OR REPLACE INTO tag_definitions (name, color) VALUES (?, ?)",
+    ).run(name, color);
+  }
+
+  deleteTagDefinition(name: string): void {
+    this.db.prepare("DELETE FROM tag_definitions WHERE name = ?").run(name);
+  }
+
+  renameTagDefinition(oldName: string, newName: string): void {
+    this.db.exec("BEGIN");
+    try {
+      this.db.prepare("UPDATE tag_definitions SET name = ? WHERE name = ?").run(newName, oldName);
+      this.db.prepare("UPDATE conversation_tags SET tag = ? WHERE tag = ?").run(newName, oldName);
+      this.db.exec("COMMIT");
+    } catch (e) {
+      this.db.exec("ROLLBACK");
+      throw e;
+    }
+  }
+
   // ─── Message Editing ────────────────────────────────────────────────
 
   editMessage(messageId: string, conversationId: string, newContent: string): void {
@@ -419,63 +462,84 @@ export class StagingWriter {
 
   search(query: string, opts?: {
     scope?: "all" | "titles" | "messages";
-    conversationId?: string;
     offset?: number;
     limit?: number;
-  }): {
-    conversations: StagedConversationSummary[];
-    messages: Array<{ id: string; conversationId: string; role: string; content: string; createdAt: string; title: string | null }>;
-  } {
+  }): Array<StagedConversationSummary & { matchCount: number }> {
     const scope = opts?.scope || "all";
-    const limit = opts?.limit || 20;
+    const limit = opts?.limit || 50;
     const offset = opts?.offset || 0;
 
-    let conversations: StagedConversationSummary[] = [];
-    let messages: Array<{ id: string; conversationId: string; role: string; content: string; createdAt: string; title: string | null }> = [];
+    // Collect matching conversation IDs with counts
+    const matchCounts = new Map<string, number>();
 
     if (scope === "all" || scope === "titles") {
       const rows = this.db.prepare(
-        `SELECT c.*, pm.match_status as psycheros_status
+        `SELECT fts.id
          FROM staged_conversations_fts fts
-         JOIN staged_conversations c ON c.id = fts.id
-         LEFT JOIN psycheros_matches pm ON c.id = pm.conversation_id
-         WHERE staged_conversations_fts MATCH ?
-         ORDER BY rank
-         LIMIT ? OFFSET ?`,
-      ).all(query, String(limit), String(offset)) as Array<Record<string, unknown>>;
-
-      conversations = rows.map((row) => this.rowToConversationSummary(row));
+         WHERE staged_conversations_fts MATCH ?`,
+      ).all(query) as Array<{ id: string }>;
+      for (const row of rows) {
+        matchCounts.set(row.id, (matchCounts.get(row.id) || 0) + 1);
+      }
     }
 
     if (scope === "all" || scope === "messages") {
-      const convFilter = opts?.conversationId
-        ? " AND staged_messages_fts.conversation_id = ?"
-        : "";
-
-      const params = [query, String(limit), String(offset)] as string[];
-      if (opts?.conversationId) params.push(opts.conversationId);
-
       const rows = this.db.prepare(
-        `SELECT sm.id, sm.conversation_id, sm.role, sm.content, sm.created_at, c.title
+        `SELECT fts.conversation_id
          FROM staged_messages_fts fts
-         JOIN staged_messages sm ON sm.rowid = fts.rowid
-         LEFT JOIN staged_conversations c ON c.id = sm.conversation_id
-         WHERE staged_messages_fts MATCH ?${convFilter}
-         ORDER BY rank
-         LIMIT ? OFFSET ?`,
-      ).all(...(params as [])) as Array<Record<string, unknown>>;
-
-      messages = rows.map((row) => ({
-        id: row.id as string,
-        conversationId: row.conversation_id as string,
-        role: row.role as string,
-        content: row.content as string,
-        createdAt: row.created_at as string,
-        title: (row.title as string) || null,
-      }));
+         WHERE staged_messages_fts MATCH ?`,
+      ).all(query) as Array<{ conversation_id: string }>;
+      for (const row of rows) {
+        matchCounts.set(row.conversation_id, (matchCounts.get(row.conversation_id) || 0) + 1);
+      }
     }
 
-    return { conversations, messages };
+    if (matchCounts.size === 0) return [];
+
+    // Sort by match count descending
+    const sortedIds = [...matchCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(offset, offset + limit)
+      .map(([id]) => id);
+
+    // Fetch full conversation summaries
+    const placeholders = sortedIds.map(() => "?").join(",");
+    const rows = this.db.prepare(
+      `SELECT c.*, pm.match_status as psycheros_status
+       FROM staged_conversations c
+       LEFT JOIN psycheros_matches pm ON c.id = pm.conversation_id
+       WHERE c.id IN (${placeholders})
+       ORDER BY c.imported_at DESC`,
+    ).all(...sortedIds) as Array<Record<string, unknown>>;
+
+    // Restore match-count order and attach counts
+    const byId = new Map(rows.map(r => [r.id as string, this.rowToConversationSummary(r)]));
+
+    return sortedIds.map(id => {
+      const conv = byId.get(id);
+      return conv ? { ...conv, matchCount: matchCounts.get(id)! } : null;
+    }).filter(Boolean) as Array<StagedConversationSummary & { matchCount: number }>;
+  }
+
+  searchTotal(query: string, opts?: { scope?: "all" | "titles" | "messages" }): number {
+    const scope = opts?.scope || "all";
+    const ids = new Set<string>();
+
+    if (scope === "all" || scope === "titles") {
+      const rows = this.db.prepare(
+        `SELECT id FROM staged_conversations_fts WHERE staged_conversations_fts MATCH ?`,
+      ).all(query) as Array<{ id: string }>;
+      for (const r of rows) ids.add(r.id);
+    }
+
+    if (scope === "all" || scope === "messages") {
+      const rows = this.db.prepare(
+        `SELECT conversation_id FROM staged_messages_fts WHERE staged_messages_fts MATCH ?`,
+      ).all(query) as Array<{ conversation_id: string }>;
+      for (const r of rows) ids.add(r.conversation_id);
+    }
+
+    return ids.size;
   }
 
   // ─── Tag Sets ───────────────────────────────────────────────────────

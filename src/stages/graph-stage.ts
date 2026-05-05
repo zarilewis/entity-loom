@@ -599,7 +599,7 @@ export function graphRoutes(): Array<{ method: string; pattern: string | RegExp;
     {
       method: "GET",
       pattern: "/api/download",
-      handler: async () => {
+      handler: async (req) => {
         const packageDir = getActivePackageDir();
         if (!packageDir) return json({ error: "No active package" }, 400);
 
@@ -607,8 +607,23 @@ export function graphRoutes(): Array<{ method: string; pattern: string | RegExp;
         const entityName = config?.entityName || basename(packageDir);
         const prefix = `${entityName}-import/`;
 
+        // Optional tag suffix for renaming chats.db inside the ZIP
+        const url = new URL(req.url);
+        const tagSuffix = url.searchParams.get("tags") || "";
+
         try {
           const files = await collectFiles(packageDir, prefix);
+
+          // Rename chats.db to {tagSuffix}chats.db if tags provided
+          if (tagSuffix) {
+            const chatsKey = `${prefix}chats.db`;
+            if (files[chatsKey]) {
+              const taggedKey = `${prefix}${tagSuffix}chats.db`;
+              files[taggedKey] = files[chatsKey];
+              delete files[chatsKey];
+            }
+          }
+
           const zipped = zipSync(files);
           return new Response(ReadableStream.from([new Uint8Array(zipped)]), {
             headers: {
