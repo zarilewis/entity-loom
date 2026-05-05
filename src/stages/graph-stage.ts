@@ -255,6 +255,28 @@ export function graphRoutes(): Array<{ method: string; pattern: string | RegExp;
       },
     },
 
+    // POST /api/graph/skip
+    {
+      method: "POST",
+      pattern: "/api/graph/skip",
+      handler: async () => {
+        const packageDir = getActivePackageDir();
+        const checkpoint = getActiveCheckpoint();
+        if (!packageDir || !checkpoint) return json({ error: "No active package" }, 400);
+
+        checkpoint.stages.graph.status = "completed";
+        checkpoint.stages.graph.completed = true;
+
+        const checkpointMgr = new CheckpointManager(packageDir);
+        await checkpointMgr.save(checkpoint as unknown as CheckpointState);
+        setActiveCheckpoint(checkpoint);
+
+        log("info", "Graph stage skipped by user");
+        sse.broadcast({ type: "stage_completed", stage: "graph", data: { skipped: true }, timestamp: new Date().toISOString() });
+        return json({ skipped: true });
+      },
+    },
+
     // GET /api/graph/status
     {
       method: "GET",

@@ -23,7 +23,7 @@ The wizard runs a 5-stage pipeline:
 2. **Convert** — Upload chat export files (platform auto-detected), adjust per-file if needed, parse and preview, then store to a local SQLite database
 3. **Significant Memories** — Extracts journal-entry prose for genuinely significant events from raw conversations (LLM-powered, high bar)
 4. **Daily Memories** — Generates day-by-day bullet-point summaries from the chat database (LLM-powered)
-5. **Knowledge Graph** — Extracts entities and relationships from all memory files into a graph database (LLM-powered), then consolidates with rule-based pruning
+5. **Knowledge Graph** — Extracts entities (person, place, health, tradition) and relationships from all memory files into a graph database (LLM-powered), then consolidates with rule-based pruning. This stage can be skipped entirely — finalize and download still work without it.
 
 Each stage is independently resumable. If interrupted, refresh the page and click Resume. If you want to start over, use the Purge button to delete a package entirely.
 
@@ -117,7 +117,7 @@ Today was one of those days that shifts everything. Alex said "I love you" for t
 
 ### Knowledge graph (`graph.db`)
 
-Extracted via LLM with a concrete-reality standard, then consolidated with rule-based pruning (isolated node removal, duplicate merging, generic topic detection).
+Extracted via LLM with a concrete-reality standard. Entity types are restricted to `self`, `person`, `place`, `health`, and `tradition` — abstract or low-value types (topics, insights, preferences, boundaries, goals) are explicitly excluded. Consolidated with rule-based pruning (isolated node removal, duplicate merging, generic topic detection).
 
 ## Architecture
 
@@ -195,6 +195,7 @@ GET/PUT/DELETE /api/memories/daily/*        Memory file CRUD
 POST /api/graph/estimate                Cost estimate
 POST /api/graph/start                   Start (background)
 POST /api/graph/abort                   Abort
+POST /api/graph/skip                    Skip (marks as completed without running)
 GET  /api/graph/status                  Progress
 
 POST /api/finalize                      Strip platform column, make Psycheros-compatible

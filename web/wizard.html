@@ -1000,10 +1000,10 @@
           <div class="wiz-section-title">Upload</div>
           <div class="wiz-upload" id="upload-zone" onclick="document.getElementById('file-input').click()">
             <div class="wiz-upload-icon">&#x21E5;</div>
-            <div class="wiz-upload-text"><strong>Click to upload</strong> or drag a file here</div>
+            <div class="wiz-upload-text"><strong>Click to upload</strong> or drag files here</div>
             <div class="wiz-upload-hint">Platform is auto-detected. Change it in the queue below if needed.</div>
           </div>
-          <input type="file" id="file-input" style="display:none" onchange="handleUpload(this.files[0])">
+          <input type="file" id="file-input" multiple style="display:none" onchange="handleUploads(this.files)">
         </div>
 
         <div class="wiz-section" id="queue-section" style="display:none">
@@ -1121,6 +1121,7 @@
         <div class="wiz-actions" id="daily-complete-actions" style="display:none">
           <div style="color:var(--success);font-weight:var(--font-weight-medium);margin-bottom:var(--sp-2)">&#x2713; Generation complete</div>
           <button class="btn btn--primary btn--block" onclick="goToStage('graph')">Next: Knowledge Graph</button>
+          <button class="btn btn--ghost btn--block" onclick="skipGraph()">Skip Graph &amp; Finalize</button>
           <button class="btn btn--ghost btn--sm" style="margin-top:var(--sp-1)" onclick="startStage('daily')">Re-run</button>
         </div>
 
@@ -1158,6 +1159,7 @@
 
         <div class="wiz-actions" id="graph-start-actions">
           <button class="btn btn--primary btn--block" onclick="startStage('graph')">Start Graph Population</button>
+          <button class="btn btn--ghost btn--block" onclick="skipGraph()">Skip Graph</button>
         </div>
         <div class="wiz-actions" id="graph-complete-actions" style="display:none">
           <div style="color:var(--success);font-weight:var(--font-weight-medium);margin-bottom:var(--sp-2)">&#x2713; Graph population complete</div>
@@ -1570,24 +1572,29 @@
       zone.addEventListener('drop', (e) => {
         e.preventDefault();
         zone.classList.remove('wiz-upload--dragover');
-        if (e.dataTransfer.files.length) handleUpload(e.dataTransfer.files[0]);
+        if (e.dataTransfer.files.length) handleUploads(e.dataTransfer.files);
       });
     });
 
-    async function handleUpload(file) {
-      if (!file) return;
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-        const res = await api('POST', '/api/convert/upload', formData, true);
-        if (res.error) { showToast(res.error); return; }
-        showToast(`Uploaded: ${file.name} (${res.entry.platform})`);
-        // Reset file input so the same file can be re-uploaded
-        document.getElementById('file-input').value = '';
-        await loadUploadQueue();
-      } catch (e) {
-        showToast('Upload failed: ' + e.message);
+    async function handleUploads(files) {
+      const fileArray = Array.from(files);
+      if (!fileArray.length) return;
+      let uploaded = 0, failed = 0;
+      for (const file of fileArray) {
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+          const res = await api('POST', '/api/convert/upload', formData, true);
+          if (res.error) { showToast(`Failed: ${file.name} — ${res.error}`); failed++; continue; }
+          uploaded++;
+        } catch (e) {
+          showToast(`Failed: ${file.name} — ${e.message}`);
+          failed++;
+        }
       }
+      document.getElementById('file-input').value = '';
+      if (uploaded > 0) showToast(`Uploaded ${uploaded} file${uploaded > 1 ? 's' : ''}${failed > 0 ? ` (${failed} failed)` : ''}`);
+      await loadUploadQueue();
     }
 
     async function loadUploadQueue() {
@@ -1750,6 +1757,9 @@
     }
 
     async function confirmStore() {
+      const btn = document.getElementById('btn-confirm-store');
+      btn.disabled = true;
+      btn.textContent = 'Storing...';
       try {
         const res = await api('POST', '/api/convert/confirm');
         if (res.error) { showToast(res.error); return; }
@@ -1760,6 +1770,9 @@
         updateStatusBadges();
       } catch (e) {
         showToast('Store failed: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Confirm & Store';
       }
     }
 
@@ -1823,6 +1836,19 @@
         }
       } catch (e) {
         showToast('Abort failed: ' + e.message);
+      }
+    }
+
+    async function skipGraph() {
+      if (!confirm('Skip the knowledge graph stage? You can still finalize and download the package without it.')) return;
+      try {
+        const res = await api('POST', '/api/graph/skip');
+        if (res.error) { showToast(res.error); return; }
+        showToast('Graph stage skipped');
+        await loadState();
+        goToStage('graph');
+      } catch (e) {
+        showToast('Skip failed: ' + e.message);
       }
     }
 

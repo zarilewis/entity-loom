@@ -43,7 +43,7 @@ deno test -A tests/    # Run tests
 | `src/stages/convert-stage.ts` | Multi-file upload queue, per-file platform, parse all, confirm |
 | `src/stages/significant-stage.ts` | Background significant memory extraction |
 | `src/stages/daily-stage.ts` | Background daily memory extraction |
-| `src/stages/graph-stage.ts` | Background graph population + graph CRUD + finalize + zip download |
+| `src/stages/graph-stage.ts` | Background graph population + graph CRUD + skip endpoint + finalize + zip download |
 | `src/stages/signaled-llm.ts` | AbortSignal-aware LLM wrapper |
 | `src/types.ts` | Shared types (ImportedConversation, WizardConfig, UploadEntry, etc.) |
 | `src/config.ts` | WizardConfig persistence, checkpoint migration |
@@ -82,6 +82,10 @@ deno test -A tests/    # Run tests
 
 Stages 3-5 run as background async tasks with SSE progress, abort support,
 and per-item checkpointing. Only one stage runs at a time.
+
+**Graph stage is optional**: The graph stage can be skipped entirely via "Skip Graph" in the UI or `POST /api/graph/skip`. When skipped, the checkpoint marks it as completed and finalize/download proceed normally. The graph viewer will be unavailable if skipped.
+
+**Graph entity types**: Restricted to `self`, `person`, `place`, `health`, `tradition`. Abstract types (`topic`, `insight`, `preference`, `boundary`, `goal`) are excluded from extraction to reduce low-value noise.
 
 **REST API**: All operations via `/api/*` endpoints.
 **SSE**: Real-time progress at `/api/events`.

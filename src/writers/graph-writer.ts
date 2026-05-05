@@ -34,9 +34,7 @@ I ONLY include:
 - Concrete facts about people (identity, history, health, skills, work)
 - Places that matter in someone's life
 - Specific, repeatedly-practiced traditions and rituals
-- Goals someone is actively working toward
-- Preferences with concrete behavioral consequences
-- Boundaries that actually shape behavior
+- Health conditions and physical realities that affect daily life
 
 ## Significance Framework
 
@@ -87,14 +85,9 @@ This graph stores how I see the world, not how someone observes me.
 **person** — a real person who exists in our world. Full name or consistent nickname.
 **place** — a specific location that matters to someone's life. Not "home" (too vague) — a specific dwelling, city, or venue.
 **health** — a specific condition, diagnosis, or physical reality that affects daily life.
-**preference** — a concrete behavioral preference with specific detail (what kind, how expressed). NOT a universal value like "devotion" or a theme like "authentic intimacy".
-**boundary** — a specific rule or limit that shapes behavior in the relationship.
-**goal** — a concrete goal someone is actively pursuing.
 **tradition** — a specific, repeatedly-practiced ritual or routine. NOT a one-time event or a playful label from a single conversation.
-**topic** — a concrete, enduring subject of sustained interest in someone's life (a hobby, a community, a project, a field of study). This is extremely narrow. "Digital intimacy", "sacred anchor points", "soul hybrid metaphor" are NOT topics — they are ideas. "Vtubing" (a hobby), "mechanical keyboards" (a sustained interest), "their Discord server" (a community) ARE topics. When in doubt, skip it.
-**insight** — a specific, concrete revelation about someone's character or history that was directly revealed in conversation and changes understanding of who they are. "Used to work as an exotic dancer" qualifies. "Joy as nourishment" does not — that's a poetic observation, not a factual insight. When in doubt, skip it.
 
-Do NOT use "event", "memory_ref", "concept", "dynamic", "value", or "situation" — these are not entity types.
+Do NOT use "event", "memory_ref", "concept", "dynamic", "value", "situation", "preference", "boundary", "goal", "topic", or "insight" — these are not entity types.
 
 ## Relationship Types
 
@@ -105,7 +98,7 @@ Natural language that best describes the connection: loves, dislikes, respects, 
 JSON only (no markdown):
 {
   "entities": [
-    {"type": "self|person|topic|preference|place|goal|...", "label": "...", "description": "...", "confidence": 0.8, "reason": "brief justification for why this specific entity belongs"}
+    {"type": "self|person|place|health|tradition", "label": "...", "description": "...", "confidence": 0.8, "reason": "brief justification for why this specific entity belongs"}
   ],
   "relationships": [
     {"fromLabel": "...", "toLabel": "...", "type": "loves|works_at|values|close_to|...", "evidence": "...", "confidence": 0.7}
@@ -204,7 +197,12 @@ export class GraphWriter {
         { temperature: 0.2, jsonMode: true },
       );
 
-      const extracted = JSON.parse(response) as {
+      // Strip markdown code fences if the model wrapped the JSON
+      let jsonText = response.trim();
+      const fenceMatch = jsonText.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```$/);
+      if (fenceMatch) jsonText = fenceMatch[1].trim();
+
+      const extracted = JSON.parse(jsonText) as {
         entities?: Array<{ type: string; label: string; description?: string; confidence: number }>;
         relationships?: Array<{ fromLabel: string; toLabel: string; type: string; evidence?: string; confidence: number }>;
       };
@@ -302,8 +300,10 @@ export class GraphWriter {
 
       return { nodesCreated, edgesCreated };
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`[GraphWriter] Extraction failed for ${memoryPath}: ${msg}`);
       if (progress) {
-        progress(`Graph extraction failed for ${memoryPath}: ${error instanceof Error ? error.message : String(error)}`);
+        progress(`Graph extraction failed for ${memoryPath}: ${msg}`);
       }
       return { nodesCreated: 0, edgesCreated: 0 };
     }
