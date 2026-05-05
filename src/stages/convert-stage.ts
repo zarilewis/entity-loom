@@ -19,6 +19,18 @@ import { log } from "../server/logger.ts";
 /** In-memory cached preview data */
 let cachedPreview: PreviewStats | null = null;
 let cachedConversations: ImportedConversation[] | null = null;
+let confirmInProgress = false;
+
+/** Get cached parsed conversations (for staging populate) */
+export function getCachedConversations(): ImportedConversation[] | null {
+  return cachedConversations;
+}
+
+/** Clear cached preview data and conversations */
+export function clearCachedConversations(): void {
+  cachedConversations = null;
+  cachedPreview = null;
+}
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -90,14 +102,20 @@ export function convertRoutes(): Array<{ method: string; pattern: string | RegEx
         const rawDir = join(packageDir, "raw");
         await Deno.mkdir(rawDir, { recursive: true });
 
-        // Check for duplicate filename in queue
-        const existingEntries = await readUploadManifest(packageDir);
-        if (existingEntries.some((e) => e.filename === file.name)) {
-          return json({ error: `"${file.name}" is already in the queue` }, 409);
-        }
-
         const filePath = join(rawDir, file.name);
         const bytes = new Uint8Array(await file.arrayBuffer());
+
+        // Check for duplicate filename — allow re-upload by resetting status
+        const existingEntries = await readUploadManifest(packageDir);
+        const existingIdx = existingEntries.findIndex((e) => e.filename === file.name);
+        if (existingIdx !== -1) {
+          existingEntries[existingIdx].status = "queued";
+          existingEntries[existingIdx].error = undefined;
+          existingEntries[existingIdx].size = bytes.length;
+          existingEntries[existingIdx].uploadedAt = new Date().toISOString();
+          log("info", `Re-uploading existing file: ${file.name}`);
+        }
+
         await Deno.writeFile(filePath, bytes);
 
         // Auto-detect platform if not specified
@@ -347,15 +365,19 @@ export function convertRoutes(): Array<{ method: string; pattern: string | RegEx
       method: "POST",
       pattern: "/api/convert/confirm",
       handler: async () => {
-        const packageDir = getActivePackageDir();
-        const config = getActiveConfig();
-        const checkpoint = getActiveCheckpoint();
-        if (!packageDir || !config || !checkpoint) return json({ error: "No active package" }, 400);
-        if (!cachedConversations || cachedConversations.length === 0) {
-          return json({ error: "No parsed conversations — run parse first" }, 400);
+        if (confirmInProgress) {
+          return json({ error: "Store already in progress — please wait" }, 409);
         }
-
+        confirmInProgress = true;
         try {
+          const packageDir = getActivePackageDir();
+          const config = getActiveConfig();
+          const checkpoint = getActiveCheckpoint();
+          if (!packageDir || !config || !checkpoint) return json({ error: "No active package" }, 400);
+          if (!cachedConversations || cachedConversations.length === 0) {
+            return json({ error: "No parsed conversations — run parse first" }, 400);
+          }
+
           const dbPath = join(packageDir, "chats.db");
           const db = new DBWriter(dbPath);
           db.init();
@@ -377,7 +399,7 @@ export function convertRoutes(): Array<{ method: string; pattern: string | RegEx
           db.close();
 
           // Merge raw conversations (accumulate across batches)
-          const rawPath = join(packageDir, "raw", "conversations.json");
+          const rawPath = join(packageDir, "raw", "_loom_conversations.json");
           let existingRaw: ImportedConversation[] = [];
           try {
             const existingText = await Deno.readTextFile(rawPath);
@@ -428,6 +450,8 @@ export function convertRoutes(): Array<{ method: string; pattern: string | RegEx
           const message = error instanceof Error ? error.message : String(error);
           log("error", `Store failed: ${message}`);
           return json({ error: message }, 500);
+        } finally {
+          confirmInProgress = false;
         }
       },
     },

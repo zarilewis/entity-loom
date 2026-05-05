@@ -14,6 +14,7 @@
 
 import type { PlatformParser } from "./interface.ts";
 import type { ImportedConversation, ImportedMessage, PlatformType } from "../types.ts";
+import { buildTitle } from "./title-utils.ts";
 
 // ─── JSONL format types ─────────────────────────────────────────────
 
@@ -174,7 +175,7 @@ export class ClaudeParser implements PlatformParser {
 
     return {
       id: conv.uuid,
-      title: title ? `[claude] ${title}` : "[claude]Untitled",
+      title: buildTitle("claude", title, messages[0]?.createdAt, messages[messages.length - 1]?.createdAt),
       createdAt: new Date(conv.created_at),
       updatedAt: new Date(conv.updated_at),
       messages,
@@ -246,7 +247,7 @@ export class ClaudeParser implements PlatformParser {
 
     return {
       id: conv.uuid,
-      title: title ? `[claude] ${title}` : "[claude]Untitled",
+      title: buildTitle("claude", title, messages[0]?.createdAt, messages[messages.length - 1]?.createdAt),
       createdAt: new Date(conv.created_at),
       updatedAt: new Date(conv.updated_at),
       messages,

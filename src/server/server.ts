@@ -11,6 +11,7 @@ import { initLogger, log, closeLogger } from "./logger.ts";
 import { Router } from "./router.ts";
 import { setupRoutes } from "../stages/setup-stage.ts";
 import { convertRoutes } from "../stages/convert-stage.ts";
+import { stagingRoutes } from "../stages/staging-stage.ts";
 import { significantRoutes } from "../stages/significant-stage.ts";
 import { dailyRoutes } from "../stages/daily-stage.ts";
 import { graphRoutes } from "../stages/graph-stage.ts";
@@ -39,6 +40,7 @@ export async function startServer(port = 3210): Promise<void> {
   const router = new Router();
   router.addRoutes(setupRoutes());
   router.addRoutes(convertRoutes());
+  router.addRoutes(stagingRoutes());
   router.addRoutes(significantRoutes());
   router.addRoutes(dailyRoutes());
   router.addRoutes(graphRoutes());

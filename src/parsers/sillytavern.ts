@@ -10,6 +10,7 @@
 import type { PlatformParser } from "./interface.ts";
 import type { ImportedConversation, ImportedMessage, PlatformType } from "../types.ts";
 import { sha256Hex } from "../dedup/content-hash.ts";
+import { buildTitle } from "./title-utils.ts";
 
 interface STHeader {
   chat_metadata: Record<string, unknown>;
@@ -142,11 +143,12 @@ export class SillyTavernParser implements PlatformParser {
     // Sort by timestamp
     messages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
-    const title = header.character_name || filePath.split("/").pop()?.replace(".jsonl", "") || "unknown";
+    // SillyTavern doesn't store a chat title in the JSONL — the filename IS the title
+    const chatName = filePath.split("/").pop()?.replace(".jsonl", "") || undefined;
 
     return {
       id: conversationId,
-      title: `[sillytavern] ${title}`,
+      title: buildTitle("sillytavern", chatName, messages[0]?.createdAt, messages[messages.length - 1]?.createdAt),
       createdAt: messages.length > 0 ? messages[0].createdAt : new Date(),
       updatedAt: messages.length > 0 ? messages[messages.length - 1].createdAt : new Date(),
       messages,
@@ -200,12 +202,28 @@ function parseSTDate(sendDate: string): Date | null {
   const match = sendDate.match(
     /^(\d{4})-(\d{2})-(\d{2})\s+@(\d{1,2})h\s+(\d{1,2})m\s+(\d{1,2})s\s+(\d{1,3})ms$/,
   );
-  if (!match) return null;
+  if (match) {
+    const [, year, month, day, hour, min, sec, ms] = match;
+    return new Date(
+      `${year}-${month}-${day}T${hour.padStart(2, "0")}:${min.padStart(2, "0")}:${sec.padStart(2, "0")}.${ms.padStart(3, "0")}Z`,
+    );
+  }
 
-  const [, year, month, day, hour, min, sec, ms] = match;
-  return new Date(
-    `${year}-${month}-${day}T${hour.padStart(2, "0")}:${min.padStart(2, "0")}:${sec.padStart(2, "0")}.${ms.padStart(3, "0")}Z`,
+  // Try human-readable format: "August 19, 2025 1:46am" or "August 17, 2025 8:16pm"
+  const humanMatch = sendDate.match(
+    /^([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})\s+(\d{1,2}):(\d{2})(am|pm)$/i,
   );
+  if (humanMatch) {
+    const [, monthName, day, year, hour, min, ampm] = humanMatch;
+    let h = parseInt(hour, 10);
+    if (ampm.toLowerCase() === "am" && h === 12) h = 0;
+    if (ampm.toLowerCase() === "pm" && h !== 12) h += 12;
+    const dateStr = `${year}-${monthName}-${day} ${h}:${min}:00`;
+    const parsed = new Date(dateStr);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+
+  return null;
 }
 
 /**

@@ -277,3 +277,72 @@ export interface WizardState {
   stageStatuses: Record<StageName, StageStatus>;
   finalized?: boolean;
 }
+
+// ─── Staging Types ──────────────────────────────────────────────────────
+
+/** Filters for listing staged conversations */
+export interface StagingFilters {
+  tag?: string;
+  platform?: PlatformType;
+  included?: boolean;
+  psycherosStatus?: "new" | "existing" | "changed";
+  offset?: number;
+  limit?: number;
+  sortBy?: "date" | "title" | "messageCount" | "importedAt";
+  sortOrder?: "asc" | "desc";
+}
+
+/** A staged conversation summary (for listing) */
+export interface StagedConversationSummary {
+  id: string;
+  title: string | null;
+  platform: PlatformType;
+  createdAt: string;
+  updatedAt: string;
+  messageCount: number;
+  contentHash: string;
+  included: boolean;
+  importedAt: string;
+  sourceFile: string | null;
+  tags: string[];
+  psycherosStatus?: "new" | "existing" | "changed";
+}
+
+/** A staged message (for viewing) */
+export interface StagedMessage {
+  id: string;
+  conversationId: string;
+  role: string;
+  content: string;
+  reasoningContent: string | null;
+  createdAt: string;
+  sortOrder: number;
+  isEdited: boolean;
+  originalContent?: string;
+}
+
+/** Staging area statistics */
+export interface StagingStats {
+  total: number;
+  included: number;
+  excluded: number;
+  byPlatform: Record<string, number>;
+  byTag: Record<string, number>;
+  psycherosStatus: { new: number; existing: number; changed: number };
+}
+
+/** Snapshot of tags/inclusion state per conversation */
+export interface TagSetSnapshot {
+  conversationTags: Record<string, string[]>;
+  conversationInclusion: Record<string, boolean>;
+}
+
+/** A saved tag set */
+export interface TagSet {
+  id: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+  snapshot: TagSetSnapshot;
+}

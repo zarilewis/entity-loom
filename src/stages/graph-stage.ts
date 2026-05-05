@@ -628,6 +628,7 @@ export function graphRoutes(): Array<{ method: string; pattern: string | RegExp;
 
 /** Collect all files in a directory recursively into a flat map of {zipPath: data} */
 async function collectFiles(dirPath: string, prefix: string): Promise<Record<string, Uint8Array>> {
+  const EXCLUDED_FILES = new Set(["staging.db", "staging.db-journal", "staging.db-wal"]);
   const files: Record<string, Uint8Array> = {};
 
   async function walk(currentDir: string, currentPrefix: string): Promise<void> {
@@ -638,6 +639,7 @@ async function collectFiles(dirPath: string, prefix: string): Promise<Record<str
       if (entry.isDirectory) {
         await walk(fullPath, zippedPath + "/");
       } else if (entry.isFile) {
+        if (EXCLUDED_FILES.has(entry.name)) continue;
         files[zippedPath] = await Deno.readFile(fullPath);
       }
     }

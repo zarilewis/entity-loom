@@ -885,6 +885,65 @@
       .wiz-section { padding: var(--sp-4); }
       .wiz-log--open { height: 150px; }
     }
+
+    /* ─── Staging Area ──────────────────────────────────────────────────── */
+    .wiz-staging-stats { display:flex; gap:var(--sp-3); font-size:var(--font-size-xs); color:var(--fg-muted); margin-bottom:var(--sp-2); flex-wrap:wrap; }
+    .wiz-staging-stats b { color:var(--fg); }
+    .wiz-staging-tabs { display:flex; gap:var(--sp-1); margin-bottom:var(--sp-3); border-bottom:1px solid var(--border); padding-bottom:var(--sp-2); }
+    .wiz-staging-tab { padding:var(--sp-2) var(--sp-3); border:none; background:transparent; color:var(--fg-muted); font-size:var(--font-size-sm); cursor:pointer; border-bottom:2px solid transparent; }
+    .wiz-staging-tab:hover { color:var(--fg); }
+    .wiz-staging-tab--active { color:var(--accent); border-bottom-color:var(--accent); }
+    .wiz-staging-tab-content { display:block; }
+    .wiz-staging-toolbar { display:flex; justify-content:space-between; align-items:center; gap:var(--sp-3); margin-bottom:var(--sp-3); flex-wrap:wrap; }
+    .wiz-staging-toolbar-left, .wiz-staging-toolbar-right { display:flex; align-items:center; gap:var(--sp-2); }
+    .wiz-staging-checkall { display:flex; align-items:center; gap:var(--sp-2); font-size:var(--font-size-sm); color:var(--fg-muted); cursor:pointer; }
+    .wiz-staging-count { font-size:var(--font-size-xs); color:var(--fg-subtle); font-family:var(--font-mono); }
+    .wiz-staging-filters { display:flex; gap:var(--sp-2); margin-bottom:var(--sp-3); flex-wrap:wrap; }
+    .wiz-staging-list { border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; margin-bottom:var(--sp-3); max-height:500px; overflow-y:auto; }
+    .wiz-staging-item { display:grid; grid-template-columns:30px 1fr auto; gap:var(--sp-2); padding:var(--sp-2) var(--sp-3); align-items:center; font-size:var(--font-size-sm); border-bottom:1px solid var(--border); }
+    .wiz-staging-item:last-child { border-bottom:none; }
+    .wiz-staging-item:hover { background:var(--accent-subtle); }
+    .wiz-staging-item--excluded { opacity:0.4; }
+    .wiz-staging-item-check input[type="checkbox"] { width:14px; height:14px; cursor:pointer; }
+    .wiz-staging-item-info { min-width:0; }
+    .wiz-staging-item-title { font-weight:var(--font-weight-medium); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; color:var(--fg); }
+    .wiz-staging-item-title:hover { color:var(--accent); }
+    .wiz-staging-item-meta { font-size:var(--font-size-xs); color:var(--fg-subtle); display:flex; gap:var(--sp-2); margin-top:2px; }
+    .wiz-staging-item-tags { display:flex; gap:3px; flex-wrap:wrap; margin-top:2px; }
+    .wiz-staging-tag { display:inline-block; padding:1px 6px; border-radius:3px; font-size:10px; font-family:var(--font-mono); background:var(--accent-subtle); color:var(--accent); cursor:pointer; }
+    .wiz-staging-tag:hover { background:var(--accent); color:var(--bg); }
+    .wiz-staging-badge { font-family:var(--font-mono); font-size:10px; padding:2px 6px; border-radius:3px; }
+    .wiz-staging-badge--new { background:#1a3a1a; color:var(--success); }
+    .wiz-staging-badge--existing { background:#1a2a3a; color:#6ba3d6; }
+    .wiz-staging-badge--changed { background:#3a2a1a; color:var(--warn); }
+    .wiz-staging-pagination { display:flex; justify-content:center; gap:var(--sp-2); font-size:var(--font-size-sm); margin-bottom:var(--sp-3); }
+    .wiz-staging-search-box { display:flex; gap:var(--sp-2); margin-bottom:var(--sp-4); }
+    .wiz-staging-search-input { flex:1; padding:var(--sp-2) var(--sp-3); border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg); color:var(--fg); font-size:var(--font-size-sm); }
+    .wiz-staging-search-input:focus { outline:none; border-color:var(--accent); }
+    .wiz-staging-search-result { padding:var(--sp-2) var(--sp-3); border-bottom:1px solid var(--border); cursor:pointer; }
+    .wiz-staging-search-result:hover { background:var(--accent-subtle); }
+    .wiz-staging-messages { position:fixed; inset:0; background:var(--bg); z-index:100; display:flex; flex-direction:column; }
+    .wiz-staging-messages-header { display:flex; align-items:center; gap:var(--sp-3); padding:var(--sp-3) var(--sp-4); border-bottom:1px solid var(--border); background:var(--bg-raised); flex-shrink:0; }
+    .wiz-staging-messages-title { flex:1; font-size:var(--font-size-sm); font-weight:var(--font-weight-medium); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .wiz-staging-messages-list { flex:1; overflow-y:auto; padding:var(--sp-4); }
+    .wiz-staging-msg { margin-bottom:var(--sp-3); padding:var(--sp-3); border-radius:var(--radius-sm); border:1px solid var(--border); }
+    .wiz-staging-msg--user { border-left:3px solid var(--accent); }
+    .wiz-staging-msg--assistant { border-left:3px solid var(--success); }
+    .wiz-staging-msg--system { border-left:3px solid var(--warn); opacity:0.7; }
+    .wiz-staging-msg-role { font-size:var(--font-size-xs); font-family:var(--font-mono); text-transform:uppercase; color:var(--fg-subtle); margin-bottom:var(--sp-1); }
+    .wiz-staging-msg-content { font-size:var(--font-size-sm); white-space:pre-wrap; line-height:1.6; max-height:200px; overflow-y:auto; }
+    .wiz-staging-msg-edited { font-size:10px; color:var(--warn); margin-top:var(--sp-1); }
+    .wiz-staging-msg-actions { display:flex; gap:var(--sp-1); margin-top:var(--sp-1); }
+    .wiz-staging-tag-set { display:flex; justify-content:space-between; align-items:center; padding:var(--sp-2) var(--sp-3); border:1px solid var(--border); border-radius:var(--radius-sm); margin-bottom:var(--sp-2); font-size:var(--font-size-sm); }
+    .wiz-staging-tag-set-name { font-weight:var(--font-weight-medium); }
+    .wiz-staging-tag-set-desc { font-size:var(--font-size-xs); color:var(--fg-subtle); }
+    .wiz-staging-tag-set-actions { display:flex; gap:var(--sp-1); }
+    .wiz-staging-tag-input { display:inline-flex; align-items:center; gap:var(--sp-1); margin-top:var(--sp-2); }
+    .wiz-staging-tag-input input { padding:var(--sp-1) var(--sp-2); font-size:var(--font-size-sm); border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg); color:var(--fg); width:120px; }
+    .wiz-staging-compare-summary { display:flex; gap:var(--sp-3); font-size:var(--font-size-sm); margin-top:var(--sp-2); }
+    .wiz-staging-compare-item { padding:var(--sp-1) var(--sp-2); border-radius:var(--radius-sm); background:var(--bg-raised); }
+    .wiz-input { padding:var(--sp-2) var(--sp-3); border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg); color:var(--fg); font-size:var(--font-size-sm); width:100%; }
+    .wiz-input:focus { outline:none; border-color:var(--accent); }
   </style>
 </head>
 <body>
@@ -1027,6 +1086,114 @@
               Confirm &amp; Store
             </button>
           </div>
+        </div>
+
+        <!-- Staging Area -->
+        <div id="staging-section" style="display:none">
+          <div class="wiz-section">
+            <div class="wiz-section-title">Staging Area</div>
+            <div class="wiz-staging-stats" id="staging-stats-bar"></div>
+          </div>
+
+          <div class="wiz-staging-tabs">
+            <button class="wiz-staging-tab wiz-staging-tab--active" data-tab="browse" onclick="switchStagingTab('browse')">Browse</button>
+            <button class="wiz-staging-tab" data-tab="search" onclick="switchStagingTab('search')">Search</button>
+            <button class="wiz-staging-tab" data-tab="tags" onclick="switchStagingTab('tags')">Tags</button>
+            <button class="wiz-staging-tab" data-tab="compare" onclick="switchStagingTab('compare')">Psycheros</button>
+          </div>
+
+          <!-- Browse tab -->
+          <div class="wiz-staging-tab-content" id="staging-tab-browse">
+            <div class="wiz-staging-toolbar">
+              <div class="wiz-staging-toolbar-left">
+                <label class="wiz-staging-checkall">
+                  <input type="checkbox" id="staging-check-all" onchange="toggleAllConversations(this.checked)">
+                  <span>Select All</span>
+                </label>
+                <span class="wiz-staging-count" id="staging-count-info"></span>
+              </div>
+              <div class="wiz-staging-toolbar-right">
+                <select id="staging-tag-apply" class="wiz-select">
+                  <option value="">Apply tag...</option>
+                </select>
+                <button class="btn btn--sm btn--ghost" onclick="applyTagToSelected()">Apply</button>
+              </div>
+            </div>
+
+            <div class="wiz-staging-filters">
+              <select id="staging-filter-platform" class="wiz-select" onchange="loadStagingConversations()">
+                <option value="">All Platforms</option>
+              </select>
+              <select id="staging-filter-tag" class="wiz-select" onchange="loadStagingConversations()">
+                <option value="">All Tags</option>
+              </select>
+              <select id="staging-filter-status" class="wiz-select" onchange="loadStagingConversations()">
+                <option value="">All</option>
+                <option value="included">Included</option>
+                <option value="excluded">Excluded</option>
+              </select>
+            </div>
+
+            <div class="wiz-staging-list" id="staging-conversation-list"></div>
+            <div class="wiz-staging-pagination" id="staging-pagination"></div>
+
+            <div class="wiz-actions" style="margin-top:var(--sp-4);border:none">
+              <button class="btn btn--success btn--block" id="btn-commit-staging" onclick="commitStaging()">
+                Commit Selected (<span id="staging-commit-count">0</span>)
+              </button>
+              <button class="btn btn--ghost btn--block" style="margin-top:var(--sp-1)" id="btn-export-only" onclick="exportOnly()">
+                Export Only (skip memories &amp; graph)
+              </button>
+            </div>
+          </div>
+
+          <!-- Search tab -->
+          <div class="wiz-staging-tab-content" id="staging-tab-search" style="display:none">
+            <div class="wiz-staging-search-box">
+              <input type="text" id="staging-search-input" placeholder="Search conversations and messages..." class="wiz-staging-search-input" onkeydown="if(event.key==='Enter')performStagingSearch()">
+              <select id="staging-search-scope" class="wiz-select">
+                <option value="all">All</option>
+                <option value="titles">Titles only</option>
+                <option value="messages">Messages only</option>
+              </select>
+              <button class="btn btn--sm btn--primary" onclick="performStagingSearch()">Search</button>
+            </div>
+            <div id="staging-search-results"></div>
+          </div>
+
+          <!-- Tags tab -->
+          <div class="wiz-staging-tab-content" id="staging-tab-tags" style="display:none">
+            <div class="wiz-section">
+              <div class="wiz-section-title">Saved Tag Sets</div>
+              <div id="staging-tag-sets-list"></div>
+              <div class="wiz-actions" style="border:none;margin-top:var(--sp-2)">
+                <button class="btn btn--sm btn--primary" onclick="saveCurrentAsTagSet()">Save Current State as Tag Set</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Psycheros Compare tab -->
+          <div class="wiz-staging-tab-content" id="staging-tab-compare" style="display:none">
+            <div class="wiz-section">
+              <div class="wiz-section-title">Psycheros Comparison</div>
+              <div class="wiz-field">
+                <label>Path to Psycheros chats.db</label>
+                <input type="text" id="psycheros-db-path" placeholder="/path/to/entity/chats.db" class="wiz-input">
+              </div>
+              <button class="btn btn--sm btn--primary" onclick="runPsycherosCompare()">Compare</button>
+              <div id="psycheros-compare-results" style="margin-top:var(--sp-3)"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Message viewer overlay -->
+        <div class="wiz-staging-messages" id="staging-messages-panel" style="display:none">
+          <div class="wiz-staging-messages-header">
+            <button class="btn btn--sm btn--ghost" onclick="closeStagingMessages()">&larr; Back</button>
+            <span class="wiz-staging-messages-title" id="staging-messages-title"></span>
+          </div>
+          <div class="wiz-staging-messages-list" id="staging-messages-list"></div>
+          <div class="wiz-staging-messages-pagination" id="staging-messages-pagination"></div>
         </div>
       </div>
 
@@ -1391,6 +1558,7 @@
       updatePanelVisibility();
 
       // Load stage-specific data
+      if (stage === 'convert') { checkStagingData(); }
       if (stage === 'significant') { loadMemories('significant'); estimateCost('significant'); }
       if (stage === 'daily') { loadMemories('daily'); estimateCost('daily'); }
       if (stage === 'graph') { estimateCost('graph'); }
@@ -1744,7 +1912,9 @@
           }
 
           document.getElementById('preview-section').style.display = 'block';
-          document.getElementById('btn-confirm-store').style.display = 'flex';
+          // Staging area replaces the old confirm button
+          document.getElementById('btn-confirm-store').style.display = 'none';
+          await populateStaging();
         } else {
           showToast('No conversations found in uploaded files');
         }
@@ -2049,6 +2219,434 @@
       c.appendChild(t);
       requestAnimationFrame(() => t.classList.add('wiz-toast--visible'));
       setTimeout(() => { t.classList.remove('wiz-toast--visible'); setTimeout(() => t.remove(), 200); }, 4000);
+    }
+
+    // ─── Staging Area ───────────────────────────────────────────────────
+
+    let stagingState = { offset: 0, limit: 50, currentTab: 'browse', messageView: null };
+
+    async function checkStagingData() {
+      try {
+        const stats = await api('GET', '/api/staging/stats');
+        if (stats && stats.total > 0) {
+          document.getElementById('staging-section').style.display = 'block';
+          await loadStagingStats();
+          await loadStagingConversations();
+        }
+      } catch (e) { /* staging not initialized yet — that's fine */ }
+    }
+
+    async function populateStaging() {
+      try {
+        const res = await api('POST', '/api/staging/populate');
+        if (res.error) { showToast(res.error); return; }
+        if (res.newlyStaged > 0) showToast(`Staged ${res.newlyStaged} new conversations`);
+        document.getElementById('staging-section').style.display = 'block';
+        await loadStagingStats();
+        await loadStagingConversations();
+      } catch (e) {
+        showToast('Staging failed: ' + e.message);
+      }
+    }
+
+    async function loadStagingStats() {
+      try {
+        const stats = await api('GET', '/api/staging/stats');
+        const el = document.getElementById('staging-stats-bar');
+        el.innerHTML = `<span><b>${stats.total}</b> total</span><span><b>${stats.included}</b> included</span><span><b>${stats.excluded}</b> excluded</span>`;
+        if (stats.psycherosStatus) {
+          const ps = stats.psycherosStatus;
+          el.innerHTML += `<span><b>${ps.new}</b> new</span><span><b>${ps.existing}</b> in Psycheros</span><span><b>${ps.changed}</b> changed</span>`;
+        }
+      } catch (e) { /* ignore */ }
+    }
+
+    async function loadStagingConversations() {
+      const platform = document.getElementById('staging-filter-platform')?.value || '';
+      const tag = document.getElementById('staging-filter-tag')?.value || '';
+      const status = document.getElementById('staging-filter-status')?.value || '';
+      const params = new URLSearchParams({ offset: stagingState.offset, limit: stagingState.limit });
+      if (platform) params.set('platform', platform);
+      if (tag) params.set('tag', tag);
+      if (status) params.set('included', status === 'included' ? 'true' : status === 'excluded' ? 'false' : '');
+
+      try {
+        const res = await api('GET', `/api/staging/conversations?${params}`);
+        renderStagingList(res.conversations || [], res.total || 0);
+      } catch (e) {
+        showToast('Failed to load staging: ' + e.message);
+      }
+    }
+
+    function renderStagingList(conversations, total) {
+      const listEl = document.getElementById('staging-conversation-list');
+      if (conversations.length === 0) {
+        listEl.innerHTML = '<div style="padding:var(--sp-4);text-align:center;color:var(--fg-subtle);font-size:var(--font-size-sm)">No conversations match your filters</div>';
+        document.getElementById('staging-pagination').innerHTML = '';
+        document.getElementById('staging-commit-count').textContent = '0';
+        return;
+      }
+
+      listEl.innerHTML = conversations.map(c => {
+        const excl = !c.included ? ' wiz-staging-item--excluded' : '';
+        const dateStr = c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '?';
+        const badge = c.psycherosStatus ? `<span class="wiz-staging-badge wiz-staging-badge--${c.psycherosStatus}">${c.psycherosStatus}</span>` : '';
+        const tags = (c.tags || []).map(t => `<span class="wiz-staging-tag" onclick="event.stopPropagation();removeTagFromConv('${c.id}','${t}')">${esc(t)}<span style="margin-left:4px;opacity:0.5">&times;</span></span>`).join('');
+        return `<div class="wiz-staging-item${excl}">
+          <div class="wiz-staging-item-check"><input type="checkbox" ${c.included ? 'checked' : ''} onchange="toggleConvIncluded('${c.id}', this.checked)"></div>
+          <div class="wiz-staging-item-info">
+            <div class="wiz-staging-item-title" onclick="openStagingMessages('${c.id}', ${JSON.stringify(JSON.stringify(c.title || 'Untitled')).replace(/"/g, '&quot;')})">${esc(c.title || 'Untitled')}</div>
+            <div class="wiz-staging-item-meta">
+              <span>${c.platform}</span>
+              <span>${c.messageCount} msgs</span>
+              <span>${dateStr}</span>
+            </div>
+            ${tags ? `<div class="wiz-staging-item-tags">${tags}</div>` : ''}
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${badge}</div>
+        </div>`;
+      }).join('');
+
+      // Pagination
+      const pages = Math.ceil(total / stagingState.limit);
+      const curPage = Math.floor(stagingState.offset / stagingState.limit) + 1;
+      let pagHtml = '';
+      if (pages > 1) {
+        pagHtml += `<button class="btn btn--sm btn--ghost" ${curPage <= 1 ? 'disabled' : ''} onclick="stagingState.offset=${stagingState.offset - stagingState.limit};loadStagingConversations()">&larr;</button>`;
+        pagHtml += `<span style="color:var(--fg-muted);font-size:var(--font-size-xs)">${curPage} / ${pages}</span>`;
+        pagHtml += `<button class="btn btn--sm btn--ghost" ${curPage >= pages ? 'disabled' : ''} onclick="stagingState.offset=${stagingState.offset + stagingState.limit};loadStagingConversations()">&rarr;</button>`;
+      }
+      document.getElementById('staging-pagination').innerHTML = pagHtml;
+
+      // Update commit count
+      document.getElementById('staging-commit-count').textContent = total;
+
+      // Check all state
+      const allCheck = document.getElementById('staging-check-all');
+      const allIncluded = conversations.length > 0 && conversations.every(c => c.included);
+      if (allCheck) allCheck.checked = allIncluded;
+      document.getElementById('staging-count-info').textContent = `${conversations.filter(c => c.included).length} / ${total} selected`;
+    }
+
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    async function toggleConvIncluded(id, included) {
+      await api('PATCH', `/api/staging/conversations/${id}`, { included });
+      loadStagingConversations();
+      loadStagingStats();
+    }
+
+    async function toggleAllConversations(checked) {
+      const allRes = await api('GET', '/api/staging/conversations?limit=1');
+      if (!allRes.conversations || allRes.total === 0) return;
+      await api('PATCH', '/api/staging/conversations/all', { included: checked });
+      loadStagingConversations();
+      loadStagingStats();
+    }
+
+    async function openStagingMessages(convId, title) {
+      stagingState.messageView = { conversationId: convId, offset: 0 };
+      const panel = document.getElementById('staging-messages-panel');
+      panel.style.display = 'flex';
+      document.getElementById('staging-messages-title').textContent = title;
+      await loadStagingMessages();
+    }
+
+    async function loadStagingMessages() {
+      if (!stagingState.messageView) return;
+      const { conversationId, offset } = stagingState.messageView;
+      try {
+        const res = await api('GET', `/api/staging/conversations/${conversationId}/messages?offset=${offset}&limit=100`);
+        const listEl = document.getElementById('staging-messages-list');
+        if (res.messages.length === 0) {
+          listEl.innerHTML = '<div style="text-align:center;color:var(--fg-subtle);padding:var(--sp-4)">No messages</div>';
+          document.getElementById('staging-messages-pagination').innerHTML = '';
+          return;
+        }
+        listEl.innerHTML = res.messages.map(m => {
+          const roleClass = `wiz-staging-msg--${m.role}`;
+          const editedBadge = m.isEdited ? '<div class="wiz-staging-msg-edited">edited</div>' : '';
+          const content = esc(m.content || '(empty)');
+          return `<div class="wiz-staging-msg ${roleClass}">
+            <div class="wiz-staging-msg-role">${esc(m.role)} ${m.isEdited ? '(edited)' : ''}</div>
+            <div class="wiz-staging-msg-content">${content}</div>
+            ${editedBadge}
+            <div class="wiz-staging-msg-actions">
+              <button class="btn btn--sm btn--ghost" onclick="editStagingMessage('${m.id}','${m.conversationId}')">Edit</button>
+              ${m.isEdited ? `<button class="btn btn--sm btn--ghost" onclick="revertStagingMessage('${m.id}')">Revert</button>` : ''}
+            </div>
+          </div>`;
+        }).join('');
+
+        // Pagination
+        const pages = Math.ceil(res.total / 100);
+        const curPage = Math.floor(offset / 100) + 1;
+        let pagHtml = '';
+        if (pages > 1) {
+          pagHtml += `<button class="btn btn--sm btn--ghost" ${curPage <= 1 ? 'disabled' : ''} onclick="stagingState.messageView.offset-=100;loadStagingMessages()">&larr;</button>`;
+          pagHtml += `<span style="color:var(--fg-muted);font-size:var(--font-size-xs)">${curPage} / ${pages}</span>`;
+          pagHtml += `<button class="btn btn--sm btn--ghost" ${curPage >= pages ? 'disabled' : ''} onclick="stagingState.messageView.offset+=100;loadStagingMessages()">&rarr;</button>`;
+        }
+        document.getElementById('staging-messages-pagination').innerHTML = pagHtml;
+      } catch (e) {
+        showToast('Failed to load messages: ' + e.message);
+      }
+    }
+
+    function closeStagingMessages() {
+      document.getElementById('staging-messages-panel').style.display = 'none';
+      stagingState.messageView = null;
+    }
+
+    async function editStagingMessage(msgId, convId) {
+      const content = prompt('Edit message content:');
+      if (content === null) return;
+      try {
+        await api('PATCH', `/api/staging/messages/${msgId}`, { conversationId: convId, content });
+        showToast('Message edited');
+        loadStagingMessages();
+      } catch (e) {
+        showToast('Edit failed: ' + e.message);
+      }
+    }
+
+    async function revertStagingMessage(msgId) {
+      try {
+        await api('DELETE', `/api/staging/messages/${msgId}/edit`);
+        showToast('Edit reverted');
+        loadStagingMessages();
+      } catch (e) {
+        showToast('Revert failed: ' + e.message);
+      }
+    }
+
+    // ─── Tags ───────────────────────────────────────────────────────────
+
+    async function removeTagFromConv(convId, tag) {
+      try {
+        await api('DELETE', `/api/staging/conversations/${convId}/tags/${encodeURIComponent(tag)}`);
+        loadStagingConversations();
+      } catch (e) {
+        showToast('Failed to remove tag: ' + e.message);
+      }
+    }
+
+    async function applyTagToSelected() {
+      const tag = document.getElementById('staging-tag-apply').value;
+      if (!tag) { showToast('Select a tag first'); return; }
+      const tagName = prompt('Enter new tag name:', tag);
+      if (!tagName || !tagName.trim()) return;
+
+      try {
+        // Get all included conversations and add the tag to each
+        const allRes = await api('GET', '/api/staging/conversations?limit=9999&included=true');
+        for (const c of (allRes.conversations || [])) {
+          await api('POST', `/api/staging/conversations/${c.id}/tags`, { tag: tagName.trim() });
+        }
+        showToast(`Tagged ${allRes.conversations.length} conversations with "${tagName.trim()}"`);
+        loadStagingConversations();
+        loadStagingTags();
+      } catch (e) {
+        showToast('Failed to apply tag: ' + e.message);
+      }
+    }
+
+    async function loadStagingTags() {
+      try {
+        const res = await api('GET', '/api/staging/tags');
+        const select = document.getElementById('staging-tag-apply');
+        const filterSelect = document.getElementById('staging-filter-tag');
+        const currentTag = filterSelect.value;
+        const tags = res.tags || [];
+
+        select.innerHTML = '<option value="">Apply tag...</option>' + tags.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+        filterSelect.innerHTML = '<option value="">All Tags</option>' + tags.map(t => `<option value="${esc(t)}" ${t === currentTag ? 'selected' : ''}>${esc(t)}</option>`).join('');
+
+        // Also populate platform filter
+        const stats = await api('GET', '/api/staging/stats');
+        const platformSelect = document.getElementById('staging-filter-platform');
+        const currentPlatform = platformSelect.value;
+        const platforms = Object.keys(stats.byPlatform || {});
+        platformSelect.innerHTML = '<option value="">All Platforms</option>' + platforms.map(p => `<option value="${esc(p)}" ${p === currentPlatform ? 'selected' : ''}>${esc(p)}</option>`).join('');
+      } catch (e) { /* ignore */ }
+    }
+
+    // ─── Search ─────────────────────────────────────────────────────────
+
+    async function performStagingSearch() {
+      const query = document.getElementById('staging-search-input').value.trim();
+      if (!query) return;
+      const scope = document.getElementById('staging-search-scope').value;
+      const el = document.getElementById('staging-search-results');
+      el.innerHTML = '<div style="color:var(--fg-subtle);font-size:var(--font-size-sm)">Searching...</div>';
+
+      try {
+        const res = await api('GET', `/api/staging/search?q=${encodeURIComponent(query)}&scope=${scope}`);
+        let html = '';
+
+        if (res.conversations && res.conversations.length > 0) {
+          html += '<div style="font-size:var(--font-size-xs);color:var(--fg-subtle);margin-bottom:var(--sp-2)">Conversations</div>';
+          html += res.conversations.map(c => `<div class="wiz-staging-search-result" onclick="switchStagingTab('browse');openStagingMessages('${c.id}', ${JSON.stringify(JSON.stringify(c.title || '')).replace(/"/g, '&quot;')})"><b>${esc(c.title || 'Untitled')}</b> <span style="font-size:var(--font-size-xs);color:var(--fg-subtle)">${c.platform} &middot; ${c.messageCount} msgs</span></div>`).join('');
+        }
+
+        if (res.messages && res.messages.length > 0) {
+          html += '<div style="font-size:var(--font-size-xs);color:var(--fg-subtle);margin:var(--sp-2) 0">Messages</div>';
+          html += res.messages.map(m => {
+            const preview = (m.content || '').slice(0, 200);
+            return `<div class="wiz-staging-search-result" onclick="switchStagingTab('browse');openStagingMessages('${m.conversationId}', ${JSON.stringify(JSON.stringify(m.title || '')).replace(/"/g, '&quot;')})"><span style="color:var(--fg-subtle);font-size:var(--font-size-xs)">[${esc(m.role)}]</span> ${esc(preview)}${preview.length >= 200 ? '...' : ''}</div>`;
+          }).join('');
+        }
+
+        if (!html) html = '<div style="color:var(--fg-subtle);font-size:var(--font-size-sm);padding:var(--sp-3)">No results found</div>';
+        el.innerHTML = html;
+      } catch (e) {
+        el.innerHTML = `<div style="color:var(--danger)">Search failed: ${e.message}</div>`;
+      }
+    }
+
+    // ─── Tag Sets ───────────────────────────────────────────────────────
+
+    async function loadTagSets() {
+      try {
+        const res = await api('GET', '/api/staging/tag-sets');
+        const el = document.getElementById('staging-tag-sets-list');
+        const sets = res.tagSets || [];
+        if (sets.length === 0) {
+          el.innerHTML = '<div style="color:var(--fg-subtle);font-size:var(--font-size-sm);padding:var(--sp-2)">No saved tag sets yet</div>';
+          return;
+        }
+        el.innerHTML = sets.map(s => `<div class="wiz-staging-tag-set">
+          <div><div class="wiz-staging-tag-set-name">${esc(s.name)}</div>
+          ${s.description ? `<div class="wiz-staging-tag-set-desc">${esc(s.description)}</div>` : ''}</div>
+          <div class="wiz-staging-tag-set-actions">
+            <button class="btn btn--sm btn--primary" onclick="applyTagSet('${s.id}')">Apply</button>
+            <button class="btn btn--sm btn--ghost" onclick="deleteTagSet('${s.id}')">Delete</button>
+          </div>
+        </div>`).join('');
+      } catch (e) { /* ignore */ }
+    }
+
+    async function saveCurrentAsTagSet() {
+      const name = prompt('Tag set name:');
+      if (!name || !name.trim()) return;
+      try {
+        await api('POST', '/api/staging/tag-sets', { name: name.trim() });
+        showToast(`Tag set "${name.trim()}" saved`);
+        loadTagSets();
+      } catch (e) {
+        showToast('Failed to save tag set: ' + e.message);
+      }
+    }
+
+    async function applyTagSet(id) {
+      if (!confirm('Apply this tag set? This will update tags and inclusion for all matching conversations.')) return;
+      try {
+        const res = await api('POST', `/api/staging/tag-sets/${id}/apply`);
+        showToast(`Applied tag set: ${res.updated} conversations updated`);
+        loadStagingConversations();
+        loadStagingStats();
+      } catch (e) {
+        showToast('Failed to apply tag set: ' + e.message);
+      }
+    }
+
+    async function deleteTagSet(id) {
+      if (!confirm('Delete this tag set?')) return;
+      try {
+        await api('DELETE', `/api/staging/tag-sets/${id}`);
+        showToast('Tag set deleted');
+        loadTagSets();
+      } catch (e) {
+        showToast('Failed to delete tag set: ' + e.message);
+      }
+    }
+
+    // ─── Psycheros Compare ─────────────────────────────────────────────
+
+    async function runPsycherosCompare() {
+      const path = document.getElementById('psycheros-db-path').value.trim();
+      if (!path) { showToast('Enter a path to Psycheros chats.db'); return; }
+      const el = document.getElementById('psycheros-compare-results');
+      el.innerHTML = '<div style="color:var(--fg-subtle);font-size:var(--font-size-sm)">Comparing...</div>';
+      try {
+        const res = await api('POST', '/api/staging/psycheros/compare', { path });
+        const s = res.summary;
+        el.innerHTML = `<div class="wiz-staging-compare-summary">
+          <div class="wiz-staging-compare-item"><b>${s.new}</b> new</div>
+          <div class="wiz-staging-compare-item"><b>${s.existing}</b> already in Psycheros</div>
+          <div class="wiz-staging-compare-item"><b>${s.changed}</b> changed</div>
+        </div>
+        <div style="font-size:var(--font-size-xs);color:var(--fg-subtle);margin-top:var(--sp-2)">Use the "All" filter to see status badges on each conversation.</div>`;
+        loadStagingConversations();
+        loadStagingStats();
+      } catch (e) {
+        el.innerHTML = `<div style="color:var(--danger)">Compare failed: ${e.message}</div>`;
+      }
+    }
+
+    // ─── Tab Switching ──────────────────────────────────────────────────
+
+    function switchStagingTab(tab) {
+      stagingState.currentTab = tab;
+      document.querySelectorAll('.wiz-staging-tab').forEach(t => t.classList.toggle('wiz-staging-tab--active', t.dataset.tab === tab));
+      ['browse', 'search', 'tags', 'compare'].forEach(t => {
+        const el = document.getElementById(`staging-tab-${t}`);
+        if (el) el.style.display = t === tab ? 'block' : 'none';
+      });
+      if (tab === 'tags') loadTagSets();
+      if (tab === 'browse') { loadStagingTags(); loadStagingConversations(); }
+    }
+
+    // ─── Commit & Export ────────────────────────────────────────────────
+
+    async function commitStaging() {
+      const stats = await api('GET', '/api/staging/stats');
+      if (stats.included === 0) { showToast('No conversations selected'); return; }
+      if (!confirm(`Commit ${stats.included} conversations to chats.db?`)) return;
+      const btn = document.getElementById('btn-commit-staging');
+      btn.disabled = true;
+      btn.textContent = 'Committing...';
+      try {
+        const res = await api('POST', '/api/staging/commit');
+        if (res.error) { showToast(res.error); return; }
+        showToast(`Committed ${res.conversationsStored} conversations (${res.messagesStored} messages)`);
+        await loadState();
+        renderStepper();
+        updateStatusBadges();
+      } catch (e) {
+        showToast('Commit failed: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = `Commit Selected (${stats.included})`;
+      }
+    }
+
+    async function exportOnly() {
+      const stats = await api('GET', '/api/staging/stats');
+      if (stats.included === 0) { showToast('No conversations selected'); return; }
+      if (!confirm(`Export ${stats.included} conversations as Psycheros-compatible chats.db?\n\nThis will skip memory extraction and knowledge graph generation.`)) return;
+      const btn = document.getElementById('btn-export-only');
+      btn.disabled = true;
+      btn.textContent = 'Exporting...';
+      try {
+        const res = await api('POST', '/api/staging/export-only');
+        if (res.error) { showToast(res.error); return; }
+        showToast(`Exported ${res.conversationsStored} conversations — ready for download`);
+        await loadState();
+        renderStepper();
+        updateStatusBadges();
+        if (res.state) {
+          if (res.state.finalized) {
+            document.getElementById('finalize-section').style.display = 'none';
+            document.getElementById('download-section').style.display = 'flex';
+          }
+        }
+      } catch (e) {
+        showToast('Export failed: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Export Only (skip memories & graph)';
+      }
     }
 
     // ─── Boot ────────────────────────────────────────────────────────────────

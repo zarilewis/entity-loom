@@ -16,6 +16,7 @@
 
 import type { PlatformParser } from "./interface.ts";
 import type { ImportedConversation, ImportedMessage, PlatformType } from "../types.ts";
+import { buildTitle } from "./title-utils.ts";
 
 interface ChatGPTContentPart {
   content_type: string;
@@ -184,7 +185,7 @@ export class ChatGPTParser implements PlatformParser {
 
     return {
       id: conv.id || convId,
-      title: conv.title ? `[chatgpt] ${conv.title}` : "[chatgpt]Untitled",
+      title: buildTitle("chatgpt", conv.title, messages[0]?.createdAt, messages[messages.length - 1]?.createdAt),
       createdAt: new Date(this.clampTimestamp(conv.create_time) * 1000),
       updatedAt: new Date(this.clampTimestamp(conv.update_time) * 1000),
       messages,
