@@ -75,9 +75,10 @@ async function runGraphStage(signal: AbortSignal): Promise<void> {
 
   const memoriesDir = join(packageDir, "memories");
 
-  // Collect all memory files to process
+  // Collect memory files, separated by type
   interface MemoryEntry { path: string; dir: string; name: string; }
-  const allFiles: MemoryEntry[] = [];
+  const dailyFiles: MemoryEntry[] = [];
+  const significantFiles: MemoryEntry[] = [];
 
   for (const subdir of ["daily", "significant"]) {
     const dir = join(memoriesDir, subdir);
@@ -86,7 +87,9 @@ async function runGraphStage(signal: AbortSignal): Promise<void> {
         if (entry.isFile && entry.name.endsWith(".md") && entry.name !== ".gitkeep") {
           const fullPath = join(dir, entry.name);
           if (!checkpoint.stages.graph.processedItems.includes(fullPath)) {
-            allFiles.push({ path: fullPath, dir: subdir, name: entry.name });
+            const memEntry: MemoryEntry = { path: fullPath, dir: subdir, name: entry.name };
+            if (subdir === "daily") dailyFiles.push(memEntry);
+            else significantFiles.push(memEntry);
           }
         }
       }
@@ -95,39 +98,91 @@ async function runGraphStage(signal: AbortSignal): Promise<void> {
     }
   }
 
-  log("info", `Graph: ${allFiles.length} memory files to process`);
-  sse.broadcast({ type: "stage_started", stage: "graph", data: { totalItems: allFiles.length }, timestamp: new Date().toISOString() });
+  // Sort daily files by name (date-sorted) for chronological batching
+  dailyFiles.sort((a, b) => a.name.localeCompare(b.name));
+  significantFiles.sort((a, b) => a.name.localeCompare(b.name));
+
+  // Create batches: daily files in groups of 14 (~2 weeks), significant files individually
+  const BATCH_SIZE = 14;
+  interface Batch {
+    files: MemoryEntry[];
+    label: string;
+    isBatch: boolean;
+  }
+  const batches: Batch[] = [];
+
+  for (let i = 0; i < dailyFiles.length; i += BATCH_SIZE) {
+    const slice = dailyFiles.slice(i, i + BATCH_SIZE);
+    batches.push({
+      files: slice,
+      label: slice.length === 1 ? slice[0].name : `${slice[0].name} +${slice.length - 1}`,
+      isBatch: slice.length > 1,
+    });
+  }
+
+  for (const file of significantFiles) {
+    batches.push({ files: [file], label: file.name, isBatch: false });
+  }
+
+  const totalItems = dailyFiles.length + significantFiles.length;
+  log("info", `Graph: ${totalItems} memory files in ${batches.length} batches (${dailyFiles.length} daily, ${significantFiles.length} significant)`);
+  sse.broadcast({ type: "stage_started", stage: "graph", data: { totalItems, batches: batches.length }, timestamp: new Date().toISOString() });
 
   let totalNodes = 0;
   let totalEdges = 0;
+  let processedCount = 0;
   const checkpointMgr = new CheckpointManager(packageDir);
 
-  for (let i = 0; i < allFiles.length; i++) {
+  for (let i = 0; i < batches.length; i++) {
     if (signal.aborted) {
       log("warn", "Graph stage aborted");
       checkpoint.stages.graph.status = "aborted";
       await checkpointMgr.save(checkpoint as unknown as CheckpointState);
       setActiveCheckpoint(checkpoint);
       releaseStageLock();
+      graphWriter.close();
       return;
     }
 
-    const file = allFiles[i];
-    sse.broadcast({ type: "item_started", stage: "graph", data: { index: i, title: file.name, id: file.name }, timestamp: new Date().toISOString() });
+    const batch = batches[i];
+    sse.broadcast({ type: "item_started", stage: "graph", data: { index: i, title: batch.label, id: batch.label }, timestamp: new Date().toISOString() });
 
     try {
-      const content = await Deno.readTextFile(file.path);
-      const result = await graphWriter.processMemory(file.path, content, config.instanceId);
+      if (batch.isBatch) {
+        // Batch processing: read all files and send in one LLM call
+        const memories = await Promise.all(
+          batch.files.map(async (f) => ({ path: f.path, content: await Deno.readTextFile(f.path) })),
+        );
+        const result = await graphWriter.processBatch(memories, config.instanceId);
 
-      totalNodes += result.nodesCreated;
-      totalEdges += result.edgesCreated;
+        totalNodes += result.nodesCreated;
+        totalEdges += result.edgesCreated;
+        processedCount += batch.files.length;
 
-      if (result.nodesCreated > 0 || result.edgesCreated > 0) {
-        checkpoint.stages.graph.processedItems.push(file.path);
+        if (result.nodesCreated > 0 || result.edgesCreated > 0) {
+          for (const pf of result.perFile) {
+            checkpoint.stages.graph.processedItems.push(pf.path);
+          }
+        }
+
+        sse.broadcast({ type: "item_completed", stage: "graph", data: { index: i, title: batch.label, result: `+${result.nodesCreated}n +${result.edgesCreated}e (${batch.files.length} files)` }, timestamp: new Date().toISOString() });
+      } else {
+        // Single file processing (significant memories)
+        const content = await Deno.readTextFile(batch.files[0].path);
+        const result = await graphWriter.processMemory(batch.files[0].path, content, config.instanceId);
+
+        totalNodes += result.nodesCreated;
+        totalEdges += result.edgesCreated;
+        processedCount++;
+
+        if (result.nodesCreated > 0 || result.edgesCreated > 0) {
+          checkpoint.stages.graph.processedItems.push(batch.files[0].path);
+        }
+
+        sse.broadcast({ type: "item_completed", stage: "graph", data: { index: i, title: batch.label, result: `+${result.nodesCreated}n +${result.edgesCreated}e` }, timestamp: new Date().toISOString() });
       }
 
-      sse.broadcast({ type: "item_completed", stage: "graph", data: { index: i, title: file.name, result: `+${result.nodesCreated}n +${result.edgesCreated}e` }, timestamp: new Date().toISOString() });
-      sse.broadcast({ type: "stage_progress", stage: "graph", data: { current: i + 1, total: allFiles.length, percent: Math.round(((i + 1) / allFiles.length) * 100) }, timestamp: new Date().toISOString() });
+      sse.broadcast({ type: "stage_progress", stage: "graph", data: { current: processedCount, total: totalItems, percent: Math.round((processedCount / totalItems) * 100) }, timestamp: new Date().toISOString() });
 
       await checkpointMgr.save(checkpoint as unknown as CheckpointState);
     } catch (error) {
@@ -141,8 +196,8 @@ async function runGraphStage(signal: AbortSignal): Promise<void> {
         return;
       }
       const msg = error instanceof Error ? error.message : String(error);
-      log("error", `Graph failed for ${file.name}: ${msg}`);
-      sse.broadcast({ type: "item_error", stage: "graph", data: { index: i, title: file.name, error: msg }, timestamp: new Date().toISOString() });
+      log("error", `Graph failed for ${batch.label}: ${msg}`);
+      sse.broadcast({ type: "item_error", stage: "graph", data: { index: i, title: batch.label, error: msg }, timestamp: new Date().toISOString() });
     }
   }
 
@@ -198,19 +253,22 @@ export function graphRoutes(): Array<{ method: string; pattern: string | RegExp;
 
         const processed = new Set(checkpoint.stages.graph.processedItems);
 
-        // Rough estimate: unprocessed files × avg file size
+        // Rough estimate: batch daily files in groups of 14, significant individually
         const processedCount = processed.size;
-        const totalCount = dailyCount + sigCount;
-        const unprocessedCount = Math.max(0, totalCount - processedCount);
-        const avgChars = (dailyChars + significantChars) / Math.max(1, totalCount);
-        const totalChars = unprocessedCount * avgChars;
+        const unprocessedDaily = Math.max(0, dailyCount - [...processed].filter((p) => p.includes("/daily/")).length);
+        const unprocessedSig = Math.max(0, sigCount - [...processed].filter((p) => p.includes("/significant/")).length);
+        const batchSize = 14;
+        const dailyBatches = Math.ceil(unprocessedDaily / batchSize);
+        const totalRequests = dailyBatches + unprocessedSig;
+        const avgChars = (dailyChars + significantChars) / Math.max(1, dailyCount + sigCount);
+        const totalChars = (unprocessedDaily + unprocessedSig) * avgChars;
 
         const estimate = buildCostEstimate(
           config.llmModel,
           totalChars,
           2000, // graph extraction tends to be larger
-          unprocessedCount,
-          `${unprocessedCount} memory files for graph extraction`,
+          totalRequests,
+          `${unprocessedDaily + unprocessedSig} memory files in ~${totalRequests} batched requests`,
         );
         return json({ estimate, dailyFiles: dailyCount, significantFiles: sigCount, processed: processedCount });
       },

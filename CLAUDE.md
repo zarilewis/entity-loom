@@ -87,6 +87,8 @@ and per-item checkpointing. Only one stage runs at a time.
 
 **Graph entity types**: Restricted to `self`, `person`, `place`, `health`, `tradition`. Abstract types (`topic`, `insight`, `preference`, `boundary`, `goal`) are excluded from extraction to reduce low-value noise.
 
+**Batched graph extraction**: Daily memory files are processed in batches of ~14 (roughly two-week increments) in a single LLM call. This reduces API calls and improves entity consistency across memories (cross-referenced people, places, etc. get unified labels). Significant memories are still processed individually. No content is truncated at any stage — daily, significant, and graph processing all receive full content, chunking at message boundaries when needed.
+
 **REST API**: All operations via `/api/*` endpoints.
 **SSE**: Real-time progress at `/api/events`.
 **Checkpoint**: Saved after every item — supports abort/resume.

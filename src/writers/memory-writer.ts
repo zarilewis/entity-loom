@@ -237,16 +237,23 @@ export class MemoryWriter {
       );
       await this.rateLimit();
     } else {
-      // For significant evaluation, use only the first chunk (most recent messages
-      // tend to be less significant than early-in-day events, but we can't easily
-      // split significance across chunks). Truncate to fit.
-      const truncated = conversationsText.substring(0, maxContentChars);
-      const prompt = promptBase.replace("{conversations}", truncated + "\n(Truncated for context window)");
-      response = await this.llm.complete(
-        [{ role: "user", content: prompt }],
-        { temperature: 0.3 },
-      );
-      await this.rateLimit();
+      // Chunk the conversations text to fit within context window
+      const chunks = this.chunkConversationsText(conversationsText, maxContentChars);
+      let responses: string[] = [];
+      for (let i = 0; i < chunks.length; i++) {
+        const chunkHeader = i > 0
+          ? `\n(Continuing from part ${i + 1} of ${chunks.length} for ${date})\n`
+          : "";
+        const prompt = promptBase.replace("{conversations}", chunkHeader + chunks[i]);
+        const chunkResponse = await this.llm.complete(
+          [{ role: "user", content: prompt }],
+          { temperature: 0.3 },
+        );
+        responses.push(chunkResponse.trim());
+        await this.rateLimit();
+      }
+      // Keep the first non-NONE response (most significant event in the set)
+      response = responses.find((r) => r !== "NONE") || "NONE";
     }
 
     const trimmed = response.trim();
