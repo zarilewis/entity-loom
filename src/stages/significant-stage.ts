@@ -27,12 +27,17 @@ function json(data: unknown, status = 200): Response {
 
 /** Load raw conversations from disk, restoring Date objects */
 async function loadRawConversations(packageDir: string): Promise<ImportedConversation[]> {
-  const rawPath = join(packageDir, "raw", "conversations.json");
+  const rawPath = join(packageDir, "raw", "_loom_conversations.json");
   const raw = await Deno.readTextFile(rawPath);
   const conversations = JSON.parse(raw) as ImportedConversation[];
   for (const conv of conversations) {
     conv.createdAt = new Date(conv.createdAt as unknown as string);
     conv.updatedAt = new Date(conv.updatedAt as unknown as string);
+    if (!Array.isArray(conv.messages)) {
+      log("warn", `Conversation ${conv.id} has non-array messages field, skipping`);
+      conv.messages = [];
+      continue;
+    }
     for (const msg of conv.messages) {
       msg.createdAt = new Date(msg.createdAt as unknown as string);
     }

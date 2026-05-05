@@ -43,7 +43,7 @@ export async function generateSignificantMemories(
   );
 
   // Load raw conversations serialized by pass 1
-  const rawPath = join(packageDir, "raw", "conversations.json");
+  const rawPath = join(packageDir, "raw", "_loom_conversations.json");
   let conversations: ImportedConversation[];
   try {
     const raw = await Deno.readTextFile(rawPath);

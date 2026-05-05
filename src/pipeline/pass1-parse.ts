@@ -56,7 +56,7 @@ export async function parseExport(
   // Serialize raw conversations for pass 3b (significant memory extraction)
   const rawDir = join(packageDir, "raw");
   await Deno.mkdir(rawDir, { recursive: true });
-  const rawPath = join(rawDir, "conversations.json");
+  const rawPath = join(rawDir, "_loom_conversations.json");
   await Deno.writeTextFile(rawPath, JSON.stringify(conversations));
   onProgress?.(`Serialized ${conversations.length} conversations to ${rawPath}`);
 
