@@ -15,12 +15,14 @@ deno task start
 
 Opens a browser wizard at http://localhost:3210. Walk through the 5 stages: Setup, Convert, Significant Memories, Daily Memories, and Knowledge Graph.
 
+**New users:** See [docs/user-guide.md](docs/user-guide.md) for step-by-step instructions.
+
 ## How it works
 
 The wizard runs a 5-stage pipeline:
 
 1. **Setup** — Entity/user identity, pronouns, relationship context, LLM provider config
-2. **Convert** — Upload chat export files (platform auto-detected), adjust per-file if needed, parse and preview, then store to a local SQLite database
+2. **Convert** — Upload chat export files (platform auto-detected), parse into a staging area for review/tagging/editing, then commit selected conversations to a local SQLite database
 3. **Significant Memories** — Extracts journal-entry prose for genuinely significant events from raw conversations (LLM-powered, high bar)
 4. **Daily Memories** — Generates day-by-day bullet-point summaries from the chat database (LLM-powered)
 5. **Knowledge Graph** — Extracts entities (person, place, health, tradition) and relationships from all memory files into a graph database (LLM-powered, batched in ~14-file groups for consistency), then consolidates with rule-based pruning. This stage can be skipped entirely — finalize and download still work without it.
@@ -38,7 +40,11 @@ During processing, the platform is tracked in a `platform` column in `chats.db`.
 
 ### Multi-platform imports
 
-Upload files from different platforms (e.g., SillyTavern and ChatGPT) in the Convert stage. The platform is auto-detected on upload — change it via the per-file dropdown in the queue if wrong. Queue them up, then convert all at once. Conversations are deduplicated by ID. Duplicate filenames are rejected.
+Upload files from different platforms (e.g., SillyTavern and ChatGPT) in the Convert stage. The platform is auto-detected on upload — change it via the per-file dropdown in the queue if wrong. Queue them up, then convert all at once. After parsing, conversations populate the staging area where you can browse, search, tag, select, and edit before committing.
+
+### Staging area
+
+A review/curation step between Parse and Commit. Features: Psycheros comparison (flags new/existing/changed conversations), color-coded tag palette, full-text search, per-conversation include/exclude, and an inline message viewer for editing. Two commit options: **Commit Selected** (advances to memory extraction) or **Export Only** (finalizes and downloads immediately, skipping stages 3–5). Staging data persists in `staging.db` across sessions.
 
 ## Setup
 
@@ -72,8 +78,11 @@ JSONL file from data export (Settings > Data export). `human` role mapped to `us
 ### SillyTavern
 JSONL files (one per chat, or a directory). Deterministic conversation IDs generated from file content via SHA-256 (SillyTavern exports have no native stable IDs).
 
-### Kindroid / Letta
-Parser stubs exist. Not yet implemented.
+### Letta
+JSON file from agent chat log export. Extracts reasoning chains and system prompts.
+
+### Kindroid
+Parser stub exists. Not yet implemented.
 
 ## Output
 
@@ -81,17 +90,18 @@ entity-loom produces a self-contained import package at `.loom-exports/{entityNa
 
 ```
 .loom-exports/Luna-chatgpt/
-├── manifest.json          # Package metadata and stats
-├── config.json            # Wizard configuration
-├── checkpoint.json        # Pipeline progress state
-├── chats.db               # SQLite DB with conversations and messages
+├── manifest.json              # Package metadata and stats
+├── config.json                # Wizard configuration
+├── checkpoint.json            # Pipeline progress state
+├── chats.db                   # SQLite DB with conversations and messages
+├── staging.db                 # Staging area (excluded from ZIP download)
 ├── memories/
-│   ├── daily/             # Day-by-day bullet-point summaries
-│   └── significant/       # Journal-entry prose for significant events
-├── graph.db               # Knowledge graph SQLite DB
+│   ├── daily/                 # Day-by-day bullet-point summaries
+│   └── significant/           # Journal-entry prose for significant events
+├── graph.db                   # Knowledge graph SQLite DB (optional)
 └── raw/
-    ├── conversations.json # Raw parsed conversations
-    └── uploads.json       # Upload queue manifest
+    ├── _loom_conversations.json # Serialized conversations
+    └── uploads.json           # Upload queue manifest
 ```
 
 ### Chat database (`chats.db`)
@@ -136,18 +146,23 @@ src/
   stages/
     setup-stage.ts         Setup: config, resume, purge, LLM test
     convert-stage.ts       Multi-file upload queue, parse, store
+    staging-stage.ts       Staging area: browse, search, tag, select, edit, commit
     significant-stage.ts   Background significant extraction
     daily-stage.ts         Background daily extraction
-    graph-stage.ts         Graph population + finalize
+    graph-stage.ts         Graph population + finalize + skip
     signaled-llm.ts        AbortSignal-aware LLM wrapper
   parsers/
     chatgpt.ts             ChatGPT JSON parser
     claude.ts              Claude JSONL parser
     sillytavern.ts         SillyTavern JSONL parser
+    letta.ts               Letta agent chat log parser
+    kindroid.ts            Kindroid/KinLog parser
+    title-utils.ts         Shared title generation with date-range fallback
   pipeline/
     chunker.ts             Context window chunking
   writers/
     db-writer.ts           SQLite writes (conversations + messages + platform)
+    staging-writer.ts      Staging SQLite layer (FTS5 search, tags, compare)
     memory-writer.ts       Daily + significant memory files
     graph-writer.ts        Knowledge graph extraction
     graph-consolidator.ts  Knowledge graph consolidation
@@ -180,6 +195,19 @@ POST /api/convert/parse                 Parse all queued files
 POST /api/convert/confirm               Store all to DB
 GET  /api/convert/preview                Cached preview stats
 
+GET  /api/staging/conversations         List staged conversations (paginated)
+GET  /api/staging/conversations/:id      Get single conversation with messages
+PUT  /api/staging/conversations/:id      Update conversation (include/exclude, edits)
+POST /api/staging/bulk-update           Bulk include/exclude + tag apply
+POST /api/staging/search                FTS5 full-text search
+POST /api/staging/tags                  Create tag definition (name + color)
+GET  /api/staging/tags                  List tag definitions
+DELETE /api/staging/tags/:id             Delete tag definition
+POST /api/staging/commit                Commit selected conversations to chats.db
+POST /api/staging/export-only           Commit + finalize + download (skip stages 3–5)
+POST /api/staging/psycheros/autodetect  Auto-detect Psycheros databases
+POST /api/staging/psycheros/compare     Compare staged vs existing conversations
+
 POST /api/significant/estimate          Cost estimate
 POST /api/significant/start             Start (background)
 POST /api/significant/abort             Abort
@@ -199,6 +227,7 @@ POST /api/graph/skip                    Skip (marks as completed without running
 GET  /api/graph/status                  Progress
 
 POST /api/finalize                      Strip platform column, make Psycheros-compatible
+GET  /api/download                      Stream package as ZIP (optional ?tags= query)
 GET  /graph                             Graph viewer
 GET  /api/events                        SSE stream
 ```
