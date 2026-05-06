@@ -90,6 +90,18 @@ deno test -A tests/    # Run tests
 
 Staging data lives in `staging.db` (separate from `chats.db`) and is excluded from the download ZIP.
 
+**Staging area workflow** (user perspective):
+1. Upload chat files on the Convert panel and click "Convert All" — parsed conversations auto-populate the staging area
+2. **Review**: Browse tab shows all conversations. Each has a checkbox (include/exclude), tag chips, platform badge, and Psycheros status badge
+3. **Organize**: Create tags in the palette bar (e.g. "KinLog", "Claude", "RP"). Click a palette chip to filter the browse list. Select conversations (checkboxes) and click a palette chip to apply that tag
+4. **Search**: Switch to Search tab to find conversations by content. Results show match counts. Select results and tag them from the palette bar
+5. **Compare**: Psycheros Comparison section auto-detects databases — click Compare to see which conversations are new/existing/changed
+6. **Commit**: Two options:
+   - **Commit Selected** — writes included conversations to `chats.db`, then advances to Step 3 (memory extraction)
+   - **Export Only** — writes and finalizes immediately, shows download. Skips Steps 3-5 entirely
+7. **Message viewer**: Click any conversation title to open the message list. Messages can be edited in-place (edits applied on commit)
+8. Staging data persists in `staging.db` across server restarts. Resuming a package re-opens the staging area if data exists.
+
 **Memory [via:] tags**: Daily and significant memories use `[via:platform]` (e.g. `[via:sillytavern]`, `[via:chatgpt]`) per bullet/conversation, derived from the source platform rather than the tool's instance ID. This is stored in `chats.db`'s `platform` column and removed during finalization.
 
 **Conversation titles**: All parsers use `buildTitle()` from `src/parsers/title-utils.ts` to produce `[platform] Title` format. Priority: native title field > date range (e.g. "Jan 15 – Feb 3, 2025") > "[platform] Untitled". SillyTavern uses the filename as title (JSONL has no title field). Single-day conversations show just one date.
