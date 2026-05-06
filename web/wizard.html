@@ -1171,14 +1171,12 @@
             <div class="wiz-staging-pagination" id="staging-pagination"></div>
 
             <div class="wiz-actions" style="margin-top:var(--sp-4);border:none">
-              <div style="font-size:var(--font-size-xs);color:var(--fg-subtle);margin-bottom:var(--sp-1)">Write included conversations to chats.db and proceed to memory extraction (Steps 3-5). Only included (checked) conversations are committed.</div>
               <button class="btn btn--success btn--block" id="btn-commit-staging" onclick="commitStaging()">
                 Commit Selected (<span id="staging-commit-count">0</span>)
               </button>
               <button class="btn btn--ghost btn--block" style="margin-top:var(--sp-1)" id="btn-export-only" onclick="exportOnly()">
                 Export Only (skip memories &amp; graph)
               </button>
-              <div style="font-size:var(--font-size-xs);color:var(--fg-subtle);margin-top:var(--sp-1)">Commit conversations directly as a Psycheros-compatible chats.db, skipping memory and graph extraction. If conversations are tagged, the exported file is named with those tags (e.g. tag1-tag2-chats.db).</div>
             </div>
           </div>
 
