@@ -1065,7 +1065,7 @@
           <button class="btn btn--ghost btn--sm" onclick="goToStage('significant')" id="btn-next-convert">Next &rarr;</button>
         </div>
         <div class="wiz-panel-title">Convert</div>
-        <div class="wiz-panel-desc">Upload chat export files, select the platform for each, then convert them all.</div>
+        <div class="wiz-panel-desc">Upload chat export files, select the platform for each, then convert them all. After converting, use the Staging Area to review, tag, and select conversations before committing.</div>
 
         <div id="convert-status-info" class="wiz-badge wiz-badge--info" style="margin-bottom:var(--sp-4)"></div>
 
@@ -1106,12 +1106,14 @@
         <div id="staging-section" style="display:none">
           <div class="wiz-section">
             <div class="wiz-section-title">Staging Area</div>
+            <div class="wiz-panel-desc" style="margin-bottom:var(--sp-2)">Review parsed conversations before committing them. Toggle inclusion, organize with tags, and compare against your existing Psycheros database.</div>
             <div class="wiz-staging-stats" id="staging-stats-bar"></div>
           </div>
 
           <!-- Psycheros Compare -->
           <div class="wiz-section" style="margin-bottom:var(--sp-2)">
             <div class="wiz-section-title">Psycheros Comparison</div>
+            <div style="font-size:var(--font-size-xs);color:var(--fg-subtle);margin-bottom:var(--sp-2)">Check which conversations are new, already in Psycheros, or have changed since last import. A path is auto-detected if Psycheros is on this machine.</div>
             <div class="wiz-field">
               <label>Psycheros Database</label>
               <div id="psycheros-autodetect" style="margin-bottom:var(--sp-2)"></div>
@@ -1122,6 +1124,7 @@
           </div>
 
           <!-- Tag Palette -->
+          <div style="font-size:var(--font-size-xs);color:var(--fg-subtle);margin-bottom:2px">Tag palette: create named tags with colors, click a chip to filter the list, or select conversations and click a chip to tag them.</div>
           <div class="wiz-staging-palette" id="tag-palette">
             <div class="wiz-staging-newtag" id="new-tag-form" style="display:none">
               <input type="text" id="new-tag-name" placeholder="Tag name..." onkeydown="if(event.key==='Enter')createTagFromPalette()" maxlength="30">
@@ -1137,6 +1140,8 @@
             <button class="wiz-staging-tab wiz-staging-tab--active" data-tab="browse" onclick="switchStagingTab('browse')">Browse</button>
             <button class="wiz-staging-tab" data-tab="search" onclick="switchStagingTab('search')">Search</button>
           </div>
+
+          <div style="font-size:var(--font-size-xs);color:var(--fg-subtle);margin:var(--sp-1) 0" id="staging-tab-desc">All parsed conversations. Toggle the checkbox to include/exclude from commit. Click a title to view messages.</div>
 
           <!-- Browse tab -->
           <div class="wiz-staging-tab-content" id="staging-tab-browse">
@@ -1166,12 +1171,14 @@
             <div class="wiz-staging-pagination" id="staging-pagination"></div>
 
             <div class="wiz-actions" style="margin-top:var(--sp-4);border:none">
+              <div style="font-size:var(--font-size-xs);color:var(--fg-subtle);margin-bottom:var(--sp-1)">Write included conversations to chats.db and proceed to memory extraction (Steps 3-5). Only included (checked) conversations are committed.</div>
               <button class="btn btn--success btn--block" id="btn-commit-staging" onclick="commitStaging()">
                 Commit Selected (<span id="staging-commit-count">0</span>)
               </button>
               <button class="btn btn--ghost btn--block" style="margin-top:var(--sp-1)" id="btn-export-only" onclick="exportOnly()">
                 Export Only (skip memories &amp; graph)
               </button>
+              <div style="font-size:var(--font-size-xs);color:var(--fg-subtle);margin-top:var(--sp-1)">Commit conversations directly as a Psycheros-compatible chats.db, skipping memory and graph extraction. If conversations are tagged, the exported file is named with those tags (e.g. tag1-tag2-chats.db).</div>
             </div>
           </div>
 
@@ -2761,6 +2768,11 @@
 
     // ─── Tab Switching ──────────────────────────────────────────────────
 
+    const TAB_DESCRIPTIONS = {
+      browse: 'All parsed conversations. Toggle the checkbox to include/exclude from commit. Click a title to view messages.',
+      search: 'Search across conversation titles and message content. Results are grouped by conversation with match counts. Select results and tag them from the palette bar above.',
+    };
+
     function switchStagingTab(tab) {
       stagingState.currentTab = tab;
       document.querySelectorAll('.wiz-staging-tab').forEach(t => t.classList.toggle('wiz-staging-tab--active', t.dataset.tab === tab));
@@ -2768,6 +2780,8 @@
         const el = document.getElementById(`staging-tab-${t}`);
         if (el) el.style.display = t === tab ? 'block' : 'none';
       });
+      const descEl = document.getElementById('staging-tab-desc');
+      if (descEl) descEl.textContent = TAB_DESCRIPTIONS[tab] || '';
       if (tab === 'browse') loadStagingConversations();
     }
 
