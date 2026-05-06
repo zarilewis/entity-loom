@@ -12,6 +12,8 @@ Entity Loom is a tool that converts your old AI companion chat histories into a 
    - **SillyTavern**: Export individual chats as JSONL files from your SillyTavern data folder.
    - **Letta**: Export your agent's chat log as a JSON file.
 
+**Important: Run all platforms together.** If you have chat histories from multiple platforms that overlap in time (e.g., you used both ChatGPT and SillyTavern during the same period), you should upload and process all of them in a single entity-loom session. Daily memories are organized by date — if you run entity-loom separately for each platform, the second run's daily memories will overwrite the first run's for any dates they share, and you'll lose those conversations from the memories. Upload everything at once so each day's summary reflects all platforms.
+
 ## Starting Entity Loom
 
 Open Entity Loom from the Psycheros launcher, or run `deno task start` in the Entity Loom folder if you have Deno installed. A browser page opens at `http://localhost:3210` — if it doesn't open automatically, go there yourself.
